@@ -21,6 +21,20 @@ def create_dict_from_txt(path):
     pairs = [feature.split(":") for feature in features if feature is not ""]
     feature_dict = dict((k.strip(), float(v.strip())) for k, v in pairs)
     print("Feature dictonary", feature_dict)
+    return feature_dict
+
+def assess_fitness(feature_list):
+    feature_fitness = 0
+    for feature in feature_list:
+        feature_fitness += feature.value
+
+    interaction_fitness = 0
+    # TODO: add
+
+    return
+
+
+
 
 
 if __name__ == "__main__":

@@ -2,9 +2,17 @@
 from feature import Feature
 from feature_interaction import FeatureInteraction
 
-def parse(feature_prefix):
+def parse(feature_prefix, verbose=False):
   fp = FeatureParser(feature_prefix)
-  return fp.parse()
+  features, interactions = fp.parse()
+  if verbose:
+    print '#############FEATURES##############'
+    for key in features:
+      print '==========\n', features[key]
+    print '#############INTERACTIONS##############'
+    for i in interactions:
+      print '==========\n', i
+  return features, interactions
 
 class FeatureParser(object):
   def __init__(self, feature_prefix):

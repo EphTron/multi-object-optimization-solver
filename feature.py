@@ -1,5 +1,5 @@
 ﻿class Feature(object):
-  def __init__(self, name, output_string='', default_value='Selected', optional=True, exclude_features=[]):
+  def __init__(self, name, value, output_string='', default_value='Selected', optional=True, exclude_features=[]):
     self.name = name
     self.output_string = output_string
     if len(self.output_string) == 0:
@@ -7,7 +7,8 @@
     self.default_value = default_value
     self.optional = optional
     self.exclude_features = exclude_features
+    self.value = value
   
   def __repr__(self):
-    return "<feature name=%s output_string=%s default_value=%s optional=%s exclude_features=%s>" % (
-        self.name, self.output_string, self.default_value, self.optional, self.exclude_features)
+    return "<feature name=%s value=%s output_string=%s default_value=%s optional=%s exclude_features=%s>" % (
+        self.name, self.value, self.output_string, self.default_value, self.optional, self.exclude_features)

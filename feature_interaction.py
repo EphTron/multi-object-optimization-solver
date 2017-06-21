@@ -4,7 +4,7 @@
     self._value=value
 
   def __repr__(self):
-    return "<feature_interaction features=%s value=%s>" % (self.feature_names, self._value)
+    return "<feature_interaction feature_names=%s value=%s>" % (self.feature_names, self._value)
   
   def get_value(self, features):
     for f_name in self.feature_names:

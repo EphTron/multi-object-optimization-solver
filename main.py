@@ -15,15 +15,6 @@ import numpy
 import matplotlib.pyplot as plt
 
 
-def update_line(hl, new_data):
-    hl.set_xdata(numpy.append(hl.get_xdata(), new_data))
-    hl.set_ydata(numpy.append(hl.get_ydata(), new_data))
-    plt.draw()
-
-
-
-
-
 def evolution(file_name, verbose, generations=50):
     features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
     P = [candidate_solution.generate_random(features) for i in range(0, 50)]

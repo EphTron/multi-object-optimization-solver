@@ -7,7 +7,7 @@ Created on Jun 21.06.17 14:30
 
 import feature_parser
 import candidate_solution
-from candidate_solution import CandidateSolution
+import utility
 
 def assess_fitness(candidate, interactions):
     features = candidate.get_feature_list()
@@ -23,9 +23,16 @@ def assess_fitness(candidate, interactions):
 
 def evolution(file_name, verbose):
     features, interactions = feature_parser.parse(file_name, verbose=verbose)
-    C = [candidate_solution.generate_random(features) for i in range(0,50)]
-    for c in C:
-        print ("fitness:", assess_fitness(c, interactions))
+    population = [candidate_solution.generate_random(features) for i in range(0,50)]
+
+    for candidate in population:
+        print(utility.get_candidate_vector(candidate))
+
+    # get array with all fitness values
+    fitness_data = [assess_fitness(candidate, interactions) for candidate in population]
+
+    utility.plot_generation_boxplot(fitness_data)
+    print("Max Fitness:", max(fitness_data), "\nFitness Data:", fitness_data)
     
 
 if __name__ == "__main__":

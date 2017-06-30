@@ -7,33 +7,60 @@ Created on Jun 21.06.17 14:30
 
 import feature_parser
 import candidate_solution
+from candidate_solution import CandidateSolution
 import utility
 
-def assess_fitness(candidate, interactions):
-    features = candidate.get_feature_list()
-    feature_fitness = 0
-    for feature in features:
-        feature_fitness += feature.value
+# used for plotting
+import numpy
+import matplotlib.pyplot as plt
 
-    interaction_fitness = 0
-    for i in interactions:
-        interaction_fitness += i.get_value(features)
 
-    return feature_fitness + interaction_fitness
+def update_line(hl, new_data):
+    hl.set_xdata(numpy.append(hl.get_xdata(), new_data))
+    hl.set_ydata(numpy.append(hl.get_ydata(), new_data))
+    plt.draw()
 
-def evolution(file_name, verbose):
-    features, interactions = feature_parser.parse(file_name, verbose=verbose)
-    population = [candidate_solution.generate_random(features) for i in range(0,50)]
 
-    for candidate in population:
-        print(utility.get_candidate_vector(candidate))
 
-    # get array with all fitness values
-    fitness_data = [assess_fitness(candidate, interactions) for candidate in population]
 
-    utility.plot_generation_boxplot(fitness_data)
-    print("Max Fitness:", max(fitness_data), "\nFitness Data:", fitness_data)
-    
+
+def evolution(file_name, verbose, generations=50):
+    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    P = [candidate_solution.generate_random(features) for i in range(0, 50)]
+    best = None
+
+    fig = plt.figure()
+    ax = plt.subplot(111)
+
+    # populate generations
+    for gen_idx in range(0, generations):
+        utility.plot_generation_boxplot(ax, P, gen_idx)
+        for p in P:
+            if best is None or p.get_fitness() > best.get_fitness():
+                best = p
+        Q = []
+        i = 0
+
+        while i < len(P) - 1:
+            p1 = P[i]
+            p2 = P[i + 1]
+            c1, c2 = candidate_solution.arbitrary_crossover(p1, p2)
+            Q.append(c1)
+            Q.append(c2)
+            i = i + 2
+        P = [q for q in Q]
+        if verbose:
+            print("===== GENERATION ", gen_idx, " =====")
+            print("BEST: ", best)
+            print(" > fitness", best.get_fitness())
+            # get array with all fitness values
+
+
+    return best
+
 
 if __name__ == "__main__":
-    evolution('src/project_public_1/bdbc', verbose=False)
+    best = evolution('src/project_public_1/bdbc', verbose=True, generations=100)
+    # print("============================= DONE! =============================")
+    # print("Best feature list:", best.get_feature_list())
+    plt.show()

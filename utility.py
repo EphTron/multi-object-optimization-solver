@@ -5,10 +5,11 @@ Created on Jun 30.06.17 17:02
 @author: ephtron
 """
 
+import numpy as np
 import matplotlib.pyplot as plt
 
 
-def plot_generation_boxplot(population):
+def plot_generation_boxplot(ax, population, generation):
     # Create a figure instance
     fig = plt.figure(1, figsize=(9, 6))
 
@@ -16,11 +17,12 @@ def plot_generation_boxplot(population):
     ax = fig.add_subplot(111)
 
     # get fitness data array of population
-    data = [candidate.get_fitness() for candidate in population]
+    data = np.asarray([candidate.get_fitness() for candidate in population])
 
-    # Create the boxplot
-    bp = ax.boxplot(data)
-    plt.show()
+    ax.boxplot(data, positions=[generation])
+
+    ax.set_xlim(-0.5, generation+0.5)
+
 
 
 def get_candidate_vector(solution_candidate):

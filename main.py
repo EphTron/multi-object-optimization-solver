@@ -15,8 +15,20 @@ import utility
 import numpy
 import matplotlib.pyplot as plt
 
+FEATURE_PATH = ""
+INTERACTION_PATH = ""
+MODEL_PATH = ""
+CNF_PATH = ""
+
 def brute_force(file_name, verbose):
-    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name, 
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH,
+        verbose=verbose
+    )
     best = None
     max_count = 2**len(features)-1
     last_str = '{0:b}'.format(max_count)
@@ -37,7 +49,14 @@ def brute_force(file_name, verbose):
     return best
 
 def naive_evolution(file_name, verbose, generations=50, population_size=10):
-    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name, 
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH,
+        verbose=verbose
+    )
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None
     best_gen = 0
@@ -69,7 +88,14 @@ def naive_evolution(file_name, verbose, generations=50, population_size=10):
     return best, best_gen
 
 def partially_random_evolution(file_name, verbose, generations=50, population_size=10):
-    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name,
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH, 
+        verbose=verbose
+    )
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None
     best_gen = 0
@@ -103,9 +129,13 @@ def partially_random_evolution(file_name, verbose, generations=50, population_si
     return best, best_gen
 
 if __name__ == "__main__":
-    best, best_gen = partially_random_evolution('src/project_public_1/bdbc', verbose=True, generations=100)
+    FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
+    INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
+    CNF_PATH = 'src/project_public_2/toybox.dimacs'
+    best, best_gen = partially_random_evolution('src/project_public_1/toybox', verbose=True, generations=100)
+    #best, best_gen = partially_random_evolution('src/project_public_1/bdbc', verbose=True, generations=100)
     print("============================= DONE! =============================")
-    print(" > feature list:", best.get_feature_list())
+    print(" > feature list:", [f.name for f in best.get_feature_list()])
     print(" > fitness:", best.get_fitness())
     print(" > generation found:", best_gen)
     # print("============================= DONE! =============================")

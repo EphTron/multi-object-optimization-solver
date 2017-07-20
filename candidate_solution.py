@@ -49,15 +49,7 @@ def arbitrary_crossover(p1, p2, ensure_valid=True):
             c1 = None
             c2 = None
     return c1, c2
-
-def is_clause_met(feature_cnf_ids, clause):
-    for var in clause:
-        if var < 0 and abs(var) not in feature_cnf_ids:
-            return True
-        elif var > 0 and var in feature_cnf_ids:
-            return True
-    return False            
-
+    
 class CandidateSolution:
     ''' Contains a configuration of features in a dict.
     Unset features have a None value for specific key. '''
@@ -94,7 +86,7 @@ class CandidateSolution:
         # evaluate cnf if dimacs file was used:
         if len(cnf_ids) > 0 and self.cnf != None and len(self.cnf['clauses']) > 0:
             for clause in self.cnf['clauses']:
-                if not is_clause_met(cnf_ids, clause):
+                if not clause.is_met_by(cnf_ids):
                     print(cnf_ids, " does not meet ", clause)
                     return False
         return True

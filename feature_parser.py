@@ -1,5 +1,6 @@
 ﻿from xml.dom import minidom
 from feature import Feature
+from constraint_clause import ConstraintClause
 from feature_interaction import FeatureInteraction
 import os.path
 
@@ -151,7 +152,7 @@ class FeatureParser(object):
                         continue
                     var = int(w)
                     if var == 0:
-                        clauses.append(current_clause)
+                        clauses.append(ConstraintClause(current_clause))
                         current_clause = []
                     else:
                         current_clause.append(var)
@@ -175,9 +176,7 @@ class FeatureParser(object):
         str_list = []
         for e in dom_elmt.getElementsByTagName(field_name):
             str_list.append(self._get_text(e.childNodes))
-        return str_list
-
-    
+        return str_list    
 
 if __name__ == '__main__':
     features, interactions = parse('src/project_public_1/bdbc')

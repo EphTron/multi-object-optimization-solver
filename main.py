@@ -8,6 +8,9 @@ Created on Jun 21.06.17 14:30
 import feature_parser
 import candidate_solution
 from candidate_solution import CandidateSolution
+import csp_solver
+from csp_solver import CSPSolver
+
 import random
 import utility
 
@@ -29,6 +32,9 @@ def brute_force(file_name, verbose):
         cnf_path=CNF_PATH,
         verbose=verbose
     )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+    
     best = None
     max_count = 2**len(features)-1
     last_str = '{0:b}'.format(max_count)
@@ -57,6 +63,9 @@ def naive_evolution(file_name, verbose, generations=50, population_size=10):
         cnf_path=CNF_PATH,
         verbose=verbose
     )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+        
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None
     best_gen = 0
@@ -96,6 +105,9 @@ def partially_random_evolution(file_name, verbose, generations=50, population_si
         cnf_path=CNF_PATH, 
         verbose=verbose
     )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+    return
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None
     best_gen = 0

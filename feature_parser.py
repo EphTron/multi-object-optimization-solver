@@ -152,7 +152,7 @@ class FeatureParser(object):
                         continue
                     var = int(w)
                     if var == 0:
-                        clauses.append(ConstraintClause(current_clause))
+                        clauses.append(ConstraintClause(current_clause, len(clauses)+1))
                         current_clause = []
                     else:
                         current_clause.append(var)
@@ -179,7 +179,7 @@ class FeatureParser(object):
         return str_list    
 
 if __name__ == '__main__':
-    features, interactions = parse('src/project_public_1/bdbc')
+    features, interactions, cnf = parse('src/project_public_1/bdbc')
     print('#############FEATURES##############')
     for key in features:
         print('=====', key, '=====\n', features[key])

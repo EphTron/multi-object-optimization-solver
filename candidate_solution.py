@@ -1,5 +1,5 @@
 ﻿import random
-
+import csp_solver
 
 def generate_random(feature_dict={}, ensure_valid=True):
     ''' Brute force generation of valid candidate solution.
@@ -8,10 +8,25 @@ def generate_random(feature_dict={}, ensure_valid=True):
     while candidate == None:
         f_dict = {}
         for key in feature_dict:
-            if random.randint(0, 1) == 1:
-                f_dict[key] = feature_dict[key]
+            gen_random = False
+            if csp_solver.GLOBAL_INSTANCE != None:
+                f = feature_dict[key]
+                if f.cnf_id == None:
+                    gen_random = True
+                else:
+                    if f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
+                        f_dict[key] = feature_dict[key]
+                    elif -1*f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
+                        f_dict[key] = None
+                    else:
+                        gen_random = True
             else:
-                f_dict[key] = None
+                gen_random = True
+            if gen_random:
+                if random.randint(0, 1) == 1:
+                    f_dict[key] = feature_dict[key]
+                else:
+                    f_dict[key] = None
         candidate = CandidateSolution(f_dict)
         if ensure_valid and not candidate.is_valid():
             candidate = None
@@ -87,7 +102,7 @@ class CandidateSolution:
         if len(cnf_ids) > 0 and self.cnf != None and len(self.cnf['clauses']) > 0:
             for clause in self.cnf['clauses']:
                 if not clause.is_met_by(cnf_ids):
-                    print(cnf_ids, " does not meet ", clause)
+                    #print(cnf_ids, " does not meet ", clause)
                     return False
         return True
 

@@ -19,6 +19,9 @@ def parse(path_prefix, feature_path="", interaction_path="", model_path="", cnf_
         print(' > clauses:')
         for c in cnf['clauses']:
             print(c)
+        print(' > cnf_id_to_f_name:')
+        for id, name in cnf['cnf_id_to_f_name'].items():
+            print(id, name)
     return features, interactions, cnf
 
 
@@ -37,7 +40,7 @@ class FeatureParser(object):
         self.cnf_path = cnf_path
         self.parsed_features = {}
         self.parsed_interactions = []
-        self.parsed_cnf = { 'p_line':None, 'clauses':[] }
+        self.parsed_cnf = { 'p_line':None, 'clauses':[], 'cnf_id_to_f_name':{} }
 
     def _create_dict_from_txt(self, path):
         """
@@ -125,6 +128,7 @@ class FeatureParser(object):
         with open(f_name, "r") as file:
             # remove '$ ' symbols preceeding feature names
             lines = file.read().replace("$ ", " ").split("\n")
+        self.parsed_cnf['cnf_id_to_f_name'] = {}
         clauses = []
         p_line = {'cnf':'','nbvar':0,'nbclauses':0}
         current_clause = []
@@ -138,6 +142,7 @@ class FeatureParser(object):
                 if words[2] not in features:
                     continue
                 features[words[2]].cnf_id = int(words[1])
+                self.parsed_cnf['cnf_id_to_f_name'][int(words[1])] = words[2]
             elif words[0] == "p":
                 if len(words) != 4:
                     continue

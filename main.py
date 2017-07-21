@@ -107,6 +107,11 @@ def partially_random_evolution(file_name, verbose, generations=50, population_si
     )
     if CandidateSolution.cnf != None:
         csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+    
+    for i in range(0,100):
+        print("============== DEINE MUTTER =============")
+        print(csp_solver.GLOBAL_INSTANCE.generate_feature_vector())
+        print("============== ENDE =============")
     return
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None

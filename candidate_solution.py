@@ -98,12 +98,14 @@ class CandidateSolution:
             for ex_feature in feature.exclude_features:
                 if ex_feature in self._features.values():
                     return False
+        '''
         # evaluate cnf if dimacs file was used:
         if len(cnf_ids) > 0 and self.cnf != None and len(self.cnf['clauses']) > 0:
             for clause in self.cnf['clauses']:
                 if not clause.is_met_by(cnf_ids):
                     #print(cnf_ids, " does not meet ", clause)
                     return False
+        '''
         return True
 
     def get_feature_list(self):

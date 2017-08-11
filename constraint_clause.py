@@ -10,7 +10,7 @@
         return True
       elif var > 0 and var in cnf_ids:
         return True
-    return False  
+    return False
 
   def is_solved_by(self, cnf_id, is_set):
     if cnf_id not in [abs(var) for var in self.clause]:
@@ -19,6 +19,14 @@
     if is_set:
       return cnf_id in self.clause
     return -1*cnf_id in self.clause
+  
+  def is_solved_by_list(self, feature_vector):
+    for var in self.clause:
+      if var < 0 and feature_vector[abs(var)] == False:
+        return True
+      elif var > 0 and feature_vector[var] == True:
+        return True
+    return False
   
   def is_violated_by(self, feature_vector):
     for var in self.clause:
@@ -29,6 +37,17 @@
       elif var > 0 and feature_vector[var] == True:
         return False
     return True
+  
+  def get_value(self, cnf_id):
+    val = None
+    if cnf_id in self.clause:
+      val = True
+    elif -1*cnf_id in self.clause:
+      val = False
+    return val
+  
+  def get_features(self):
+    return list(set([abs(f_id) for f_id in self.clause]))
   
   def get_culled_clause(self, feature_vector):
     ''' returns the part of the clause could still be met

@@ -96,10 +96,13 @@ class CSPSolver(object):
     self.feature_spaces = []
     for c_space in constraint_spaces:
       self.feature_spaces.append([])
+      print ("==================\nFEATURE SPACE " + str(len(self.feature_spaces)-1))
       for c_id in c_space:
         c = self.constraints['clauses'][c_id-1]
         additional_features = [f_id for f_id in c.get_features() if f_id not in self.feature_spaces[-1]]
         self.feature_spaces[-1].extend(additional_features)
+      print(" > FEATURES    :" + str(len(self.feature_spaces[-1])))
+      print(" > CONSTRAINTS :" + str(len(c_space)))
   
   ##################### END INITIALIZATION #####################
   
@@ -112,6 +115,29 @@ class CSPSolver(object):
     
     result_tested = {
       cnf_id : [] for cnf_id in result.keys()
+    }
+
+    self.solve_primitive(result, result_tested)
+    
+    i = 0
+    for space in self.feature_spaces:
+      print "Starting space", i, " (length:", len(space), ")"
+      if not self._solve_feature_values(space, result, result_tested):
+        print "Failure: Contradicting cnf File"
+        return None
+      i += 1
+    
+    return result
+  
+  def fix_feature_vector(self, vector):
+    result = {
+      cnf_id : vector[cnf_id] for cnf_id in self.constraints['cnf_id_to_f_name'].keys()
+    }
+
+    print "WHAAAAT UP", result
+    
+    result_tested = {
+      cnf_id : [] for cnf_id in result.keys() ##[vector[cnf_id]] for cnf_id in result.keys()
     }
 
     self.solve_primitive(result, result_tested)
@@ -184,6 +210,7 @@ class CSPSolver(object):
     ''' Recursively solves missing values for features in result identified by cnf_id's listed in features.
         result_tested stores information about previously tested values of a feature. '''
     i = 0
+    cleared = False
     while i < len(features):
       if i < 0:
         return False
@@ -195,52 +222,88 @@ class CSPSolver(object):
 
         v = random.randint(0,1) > 0
         
-        # pick value from random constraint if feature has constraint
+        # pick most constrained value if feature has constraints
         if len(self.constraint_graph[cnf_id]) > 0:
-          idx = random.randint(0, len(self.constraint_graph[cnf_id])-1)
-          c_id = self.constraint_graph[cnf_id][idx]
-          if c_id-1 in self.primitive_redundant_constraints:
-            print (self.primitive_redundant_constraints[c_id-1])
-          v = self.constraints['clauses'][c_id-1].get_value(cnf_id)
+          c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
+          v = c.get_value(cnf_id)
         
         # set picked value as tested for given feature
         result_tested[cnf_id].append(v)
         if not self._solve(cnf_id, result, v, result_tested):
+          # test opposite if this didn't solve
           result_tested[cnf_id].append(not v)
           if not self._solve(cnf_id, result, not v, result_tested):
-            result_tested[cnf_id] = []
-            result[cnf_id] = None
-            i = self._prev_idx(features, i)
+            i = self._step_back(features, i, result, result_tested, not cleared)
+            cleared = True
             continue
       
       # pick value from untested
       else:
-        # Make sure constraint hasn't been solved by recursion
-        #skip = False
-        #for c_id in self.constraint_graph[cnf_id]:
-        #  if self.constraints['clauses'][c_id-1].is_solved_by_list(result):
-        #    skip = True
-        #    break
-        #if skip:
-        #  continue
         # solve using untested value
         if len(result_tested[cnf_id]) == 1:
           v = not result_tested[cnf_id][0]
           result_tested[cnf_id].append(v)
           if not self._solve(cnf_id, result, v, result_tested):
-            result_tested[cnf_id] = []
-            result[cnf_id] = None
-            i = self._prev_idx(features, i)
+            i = self._step_back(features, i, result, result_tested, not cleared)
+            cleared = True
             continue
         # backtrack if all values tested for feature id
         else:
-          result_tested[cnf_id] = []
-          result[cnf_id] = None
-          i = self._prev_idx(features, i)
+          i = self._step_back(features, i, result, result_tested, not cleared)
+          cleared = True
           continue
           
       i = self._next_idx(features, i)
     return True
+  
+  def _step_back(self, features, i, result, result_tested, clear=False):
+    ''' Clears tested values and set value for feature referenced by 
+        cnf_id equal to features[i]. If clear equals True all values
+        of features referenced by features identified by features[a],
+        (where i < a < len(features)) will also be cleared.
+        Returns self._prev_idx(features, i) of i. '''
+    result_tested[features[i]] = []
+    result[features[i]] = None
+    if clear:
+        self._clear_following_features(features, i, result, result_tested)
+    return self._prev_idx(features, i)
+  
+  def _clear_following_features(self, features, i, result, result_tested):
+    ''' clears all feature values and tested values for features following i in features. '''
+    temp = i
+    while temp < len(features):
+      result[features[temp]] = None
+      result_tested[features[temp]] = []
+      temp = self._next_idx(features, temp)
+    return
+    
+  def _pick_best_constraint(self, constraint_ids, result):
+    ''' picks the best constraint given by how many terms in it have already been set. '''
+    best_constraint = None
+    for c_id in constraint_ids:
+      if c_id-1 in self.primitive_redundant_constraints:
+        continue
+      c = self.constraints['clauses'][c_id-1]
+      if c.is_solved_by_list(result):
+        continue
+      if best_constraint == None:
+        best_constraint = c
+        continue
+      if len(best_constraint.get_culled_clause(result)) > len(c.get_culled_clause(result)):
+        best_constraint = c
+    
+    if best_constraint != None:
+      return best_constraint
+      '''
+      print "Constraint " + str(best_constraint.id)
+      print " > Clause " + str(best_constraint.clause)
+      print " > Culled " + str(best_constraint.get_culled_clause(result))
+      print " > Picked Value for feature.id="+str(cnf_id)+" is "+str(v)
+      '''
+    else:
+      idx = random.randint(0, len(self.constraint_graph[cnf_id])-1)
+      c_id = constraint_ids[idx]
+      return self.constraints['clauses'][c_id-1]
 
   def _solve(self, cnf_id, result, value, result_tested):
     ''' Recursive Helper function for _satisfy_constraints, to solve the value for a single constraint. '''

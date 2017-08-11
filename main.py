@@ -8,6 +8,9 @@ Created on Jun 21.06.17 14:30
 import feature_parser
 import candidate_solution
 from candidate_solution import CandidateSolution
+import csp_solver
+from csp_solver import CSPSolver
+
 import random
 import utility
 
@@ -16,8 +19,24 @@ import numpy
 import matplotlib.pyplot as plt
 
 
+FEATURE_PATH = ""
+INTERACTION_PATH = ""
+MODEL_PATH = ""
+CNF_PATH = ""
+
+
 def brute_force(file_name, verbose):
-    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name,
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH,
+        verbose=verbose
+    )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+
     best = None
     max_count = 2**len(features)-1
     last_str = '{0:b}'.format(max_count)
@@ -38,11 +57,21 @@ def brute_force(file_name, verbose):
     return best
 
 def naive_evolution(file_name, verbose, generations=50, population_size=10):
-    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name,
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH,
+        verbose=verbose
+    )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None
     best_gen = 0
-    
+
     fig = plt.figure()
     ax = plt.subplot(111)
     for gen_idx in range(0,generations):
@@ -66,15 +95,30 @@ def naive_evolution(file_name, verbose, generations=50, population_size=10):
             print("===== GENERATION ", gen_idx, " =====")
             print("BEST: ", best)
             print(" > fitness", best.get_fitness())
-    
+
     return best, best_gen
 
 def partially_random_evolution(file_name, verbose, generations=50, population_size=10):
-    features, CandidateSolution.interactions = feature_parser.parse(file_name, verbose=verbose)
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name,
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH,
+        verbose=verbose
+    )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+
+    for i in range(0,100):
+        print("============== DEINE MUTTER =============")
+        print(csp_solver.GLOBAL_INSTANCE.generate_feature_vector())
+        print("============== ENDE =============")
+    return
     P = [candidate_solution.generate_random(features) for i in range(0,population_size)]
     best = None
     best_gen = 0
-    
+
     fig = plt.figure()
     ax = plt.subplot(111)
     for gen_idx in range(0,generations):
@@ -100,13 +144,17 @@ def partially_random_evolution(file_name, verbose, generations=50, population_si
             print("===== GENERATION ",gen_idx," =====")
             print("BEST: ", best)
             print(" > fitness", best.get_fitness())
-    
+
     return best, best_gen
 
 if __name__ == "__main__":
-    best, best_gen = partially_random_evolution('src/project_public_1/bdbc', verbose=True, generations=100)
+    FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
+    INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
+    CNF_PATH = 'src/project_public_2/toybox.dimacs'
+    best, best_gen = partially_random_evolution('src/project_public_1/toybox', verbose=True, generations=100)
+    #best, best_gen = partially_random_evolution('src/project_public_1/bdbc', verbose=True, generations=100)
     print("============================= DONE! =============================")
-    print(" > feature list:", best.get_feature_list())
+    print(" > feature list:", [f.name for f in best.get_feature_list()])
     print(" > fitness:", best.get_fitness())
     print(" > generation found:", best_gen)
     # print("============================= DONE! =============================")

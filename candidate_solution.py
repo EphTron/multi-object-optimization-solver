@@ -1,5 +1,5 @@
 ﻿import random
-
+import csp_solver
 
 def generate_random(feature_dict={}, ensure_valid=True):
     ''' Brute force generation of valid candidate solution.
@@ -8,10 +8,25 @@ def generate_random(feature_dict={}, ensure_valid=True):
     while candidate == None:
         f_dict = {}
         for key in feature_dict:
-            if random.randint(0, 1) == 1:
-                f_dict[key] = feature_dict[key]
+            gen_random = False
+            if csp_solver.GLOBAL_INSTANCE != None:
+                f = feature_dict[key]
+                if f.cnf_id == None:
+                    gen_random = True
+                else:
+                    if f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
+                        f_dict[key] = feature_dict[key]
+                    elif -1*f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
+                        f_dict[key] = None
+                    else:
+                        gen_random = True
             else:
-                f_dict[key] = None
+                gen_random = True
+            if gen_random:
+                if random.randint(0, 1) == 1:
+                    f_dict[key] = feature_dict[key]
+                else:
+                    f_dict[key] = None
         candidate = CandidateSolution(f_dict)
         if ensure_valid and not candidate.is_valid():
             candidate = None
@@ -49,13 +64,13 @@ def arbitrary_crossover(p1, p2, ensure_valid=True):
             c1 = None
             c2 = None
     return c1, c2
-
-
+    
 class CandidateSolution:
     ''' Contains a configuration of features in a dict.
     Unset features have a None value for specific key. '''
 
     interactions = None
+    cnf = None
 
     def __init__(self, features={}):
         self._features = features
@@ -73,12 +88,24 @@ class CandidateSolution:
     def is_valid(self):
         ''' checks constraints in feature list.
         Returns True if all constraints met. '''
+        cnf_ids = []
         for feature in self._features.values():
             if feature == None:
                 continue
+            if feature.cnf_id != None:
+                cnf_ids.append(feature.cnf_id)
+            # evaluate exclude features in case model.xml was used
             for ex_feature in feature.exclude_features:
                 if ex_feature in self._features.values():
                     return False
+        '''
+        # evaluate cnf if dimacs file was used:
+        if len(cnf_ids) > 0 and self.cnf != None and len(self.cnf['clauses']) > 0:
+            for clause in self.cnf['clauses']:
+                if not clause.is_met_by(cnf_ids):
+                    #print(cnf_ids, " does not meet ", clause)
+                    return False
+        '''
         return True
 
     def get_feature_list(self):

@@ -35,15 +35,21 @@ def generate_random(feature_dict={}, ensure_valid=True):
 
 
 def assess_fitness(candidate, interactions=None):
-    features = candidate.get_feature_list()
+    features = candidate.get_features()
     feature_fitness = 0
-    for feature in features:
-        feature_fitness += feature.value
+    for feature_id, value in features.items():
+        if value:
+            # feature = get_feature_by_id(feature_id)
+            feature_name = CandidateSolution.cnf["cnf_id_to_f_name"][feature_id]
+            feature = CandidateSolution.features[feature_name]
+            feature_fitness += feature.value
 
     interaction_fitness = 0
     if interactions != None:
         for i in interactions:
             interaction_fitness += i.get_value(features)
+
+    print("Calculated feature fitness" , feature_fitness)
 
     return feature_fitness + interaction_fitness
 
@@ -67,19 +73,32 @@ def arbitrary_crossover(p1, p2, ensure_valid=True):
     return c1, c2
 
 
+def get_feature_by_id(id):
+    feature = next((f for key, f in CandidateSolution.features.items() if f.cnf_id == id), None)
+    return feature
+
+
 class CandidateSolution:
     ''' Contains a configuration of features in a dict.
     Unset features have a None value for specific key. '''
 
+    features = None
     interactions = None
     cnf = None
+    number_of_instances = 0
 
     def __init__(self, features={}):
+        self._id = CandidateSolution.number_of_instances
+        CandidateSolution.number_of_instances += 1
+
         self._features = features
         self._feature_list = [f for f in self._features.values() if f is not None]
         self._fitness = None
         if CandidateSolution.interactions != None:
             self.calc_fitness()
+
+    def get_id(self):
+        return self._id
 
     def calc_fitness(self):
         self._fitness = assess_fitness(self, CandidateSolution.interactions)
@@ -114,6 +133,9 @@ class CandidateSolution:
         return self._feature_list
 
     def get_feature_dict(self):
+        return self._features
+
+    def get_features(self):
         return self._features
 
     def copy_from(self, c):

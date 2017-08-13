@@ -180,15 +180,18 @@ def tweak(candidate):
     return candidate
 
 
-def simple_evolution_template(generations, pop_size, selection_size, file_name, verbose):
-    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        file_name,
+def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verbose=False):
+    # init parser, features, interactions
+    CandidateSolution.features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        "obsolete",
         feature_path=FEATURE_PATH,
         interaction_path=INTERACTION_PATH,
         model_path=MODEL_PATH,
         cnf_path=CNF_PATH,
         verbose=verbose
     )
+    # CandidateSolution.features,
+    # print("ALL ", features)
 
     if CandidateSolution.cnf is not None:
         csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
@@ -200,12 +203,14 @@ def simple_evolution_template(generations, pop_size, selection_size, file_name, 
         best_solutions.append(None)
 
     # init random population
+    print("Init population")
     population = []
     for i in range(pop_size):
         temp_solution = csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
         if meets_all_constraints(temp_solution):
             candidate = CandidateSolution(temp_solution)
             population.append(candidate)
+            print("Created candidate " + str(candidate.get_id()))
 
     gen_counter = 0
     while gen_counter < generations:
@@ -213,6 +218,7 @@ def simple_evolution_template(generations, pop_size, selection_size, file_name, 
         # assess fitness and create pheromone trail
         for candidate in population:
             fitness = candidate.get_fitness()
+            print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
             for idx, best in enumerate(best_solutions):
                 if best is None or fitness > best.get_fitness():
                     best_solutions[idx] = candidate
@@ -283,7 +289,9 @@ if __name__ == "__main__":
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
-    test_csp_solver('src/project_public_1/toybox', verbose=True)
+    # test_csp_solver('src/project_public_1/toybox', verbose=True)
+
+    simple_evolution_template(1, 10, 5)
 
     """
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'

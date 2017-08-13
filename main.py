@@ -241,9 +241,36 @@ def test_csp_solver(file_name, verbose):
     if CandidateSolution.cnf != None:
         csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
 
+
     for i in range(0, 100):
         print("============== CANDIDATE " + str(i) + " =============")
+
         vec = csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
+        print(vec)
+        if meets_all_constraints(vec):
+            print(" > Meets all constraints")
+        else:
+            print(" > Does not meet all constraints")
+    return
+
+def test_fix_vector(file_name, verbose):
+    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
+        file_name,
+        feature_path=FEATURE_PATH,
+        interaction_path=INTERACTION_PATH,
+        model_path=MODEL_PATH,
+        cnf_path=CNF_PATH, 
+        verbose=verbose
+    )
+    if CandidateSolution.cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+    
+    for i in range(0,10):
+        print("============== CANDIDATE "+str(i)+" =============")
+        vec = {
+          cnf_id : random.randint(0,1) > 0 for cnf_id in CandidateSolution.cnf['cnf_id_to_f_name'].keys()
+        }
+        vec = csp_solver.GLOBAL_INSTANCE.fix_feature_vector(vec)
         print(vec)
         if meets_all_constraints(vec):
             print(" > Meets all constraints")
@@ -253,13 +280,22 @@ def test_csp_solver(file_name, verbose):
 
 
 if __name__ == "__main__":
-    """
+
+
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
     test_csp_solver('src/project_public_1/toybox', verbose=True)
+
+    """
+    FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
+    INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
+    CNF_PATH = 'src/project_public_2/toybox.dimacs'
+    test_fix_vector('src/project_public_1/toybox', verbose=True)
+    """
     """
     FEATURE_PATH = 'src/project_public_2/busybox-1.198.0_feature.txt'
     INTERACTION_PATH = 'src/project_public_2/busybox-1.198.0_interactions.txt'
     CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
     test_csp_solver('src/project_public_1/busybox', verbose=True)
+    """

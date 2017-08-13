@@ -122,7 +122,7 @@ class CSPSolver(object):
 
         i = 0
         for space in self.feature_spaces:
-            print("Starting space", i, " (length:", len(space), ")")
+            #print("Starting space", i, " (length:", len(space), ")")
             if not self._solve_feature_values(space, result, result_tested):
                 print("Failure: Contradicting cnf File")
                 return None
@@ -135,18 +135,19 @@ class CSPSolver(object):
             cnf_id: vector[cnf_id] for cnf_id in self.constraints['cnf_id_to_f_name'].keys()
         }
 
-        print("WHAAAAT UP", result)
-
         result_tested = {
-            cnf_id: [] for cnf_id in result.keys()  ##[vector[cnf_id]] for cnf_id in result.keys()
+            cnf_id: [vector[cnf_id]] for cnf_id in result.keys()  ##[vector[cnf_id]] for cnf_id in result.keys()
         }
 
         self.solve_primitive(result, result_tested)
 
         i = 0
         for space in self.feature_spaces:
-            print("Starting space", i, " (length:", len(space), ")")
-            if not self._solve_feature_values(space, result, result_tested):
+            # ensures fair fixing, since most fixes will reset space after only a few elements
+            space_copy = [cnf_id for cnf_id in space]
+            #random.shuffle(space_copy)
+            #print("Starting space", i, " (length:", len(space_copy), ")")
+            if not self._correct_feature_values(space_copy, result, result_tested):
                 print("Failure: Contradicting cnf File")
                 return None
             i += 1
@@ -208,12 +209,128 @@ class CSPSolver(object):
             i -= 1
         # print("prev", i)
         return i
-
-    def _solve_feature_values(self, features, result, result_tested):
-        ''' Recursively solves missing values for features in result identified by cnf_id's listed in features.
+    
+    def _correct_feature_values(self, features, result, result_tested):
+        ''' Fixes set values for features in result identified by cnf_id's listed in features,
+            so that they comply with all constraints set within feature domain.
             result_tested stores information about previously tested values of a feature. '''
         i = 0
-        cleared = False
+        prev_i = 0
+        cleared_after = 100000000000000
+        while i < len(features):
+            #print "(idx,cnf_id):" + str(i)+","+str(features[i])+ " cleared_after_idx:" + str(cleared_after)
+            
+            if i < 0:
+                return False
+
+            cnf_id = features[i]
+
+            # solve using random value for untested features
+            if result[cnf_id] == None:
+                v = random.randint(0, 1) > 0
+                
+                '''
+                # pick most constrained value if feature has constraints
+                if len(self.constraint_graph[cnf_id]) > 0:
+                    c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
+                    v = c.get_value(cnf_id)
+                '''
+                
+                # set picked value as tested for given feature
+                result_tested[cnf_id].append(v)
+                if not self._solve(cnf_id, result, v):
+                    # test opposite if this didn't solve
+                    result_tested[cnf_id].append(not v)
+                    if not self._solve(cnf_id, result, not v):
+                        prev_i = i
+                        i = self._step_back(features, i, result, result_tested)
+                        continue
+
+            # pick value from untested
+            else:
+                # 1 value tested (possibly not with cleared feature space following)
+                if len(result_tested[cnf_id]) == 1:
+                    # not backtracked
+                    if prev_i < i:
+                        v = result[cnf_id]
+                        if self._solve(cnf_id, result, v):
+                            prev_i = i
+                            i = self._next_idx(features, i)
+                            continue
+                    
+                    v = not result_tested[cnf_id][0]
+                    if not self._solve(cnf_id, result, v):
+                        # if section hasn't been entirely cleared before
+                        # clear and test again
+                        if i < cleared_after:
+                            cleared_after = i
+                            # clear all following features and test again (using initial value)
+                            self._clear_following_features(features, i, result, result_tested)
+                            v = result_tested[cnf_id][0]
+                            if not self._solve(cnf_id, result, v):
+                                # test again using alternate value (after clearing)
+                                v = not v
+                                result_tested[cnf_id].append(v)
+                                if not self._solve(cnf_id, result, v):
+                                    prev_i = i
+                                    i = self._step_back(features, i, result, result_tested)
+                                    continue
+                        else:
+                            prev_i = i
+                            i = self._step_back(features, i, result, result_tested)
+                            continue
+                    else:
+                        result_tested[cnf_id].append(v)
+                # 2 values tested (possibly not with cleared feature space following)
+                else:
+                    # not backtracked
+                    if prev_i < i:
+                        v = result[cnf_id]
+                        if self._solve(cnf_id, result, v):
+                            prev_i = i
+                            i = self._next_idx(features, i)
+                            continue
+
+                    # if section hasn't been entirely cleared before
+                    # clear and test again
+                    if i < cleared_after:
+                        cleared_after = i
+                        # clear following values
+                        self._clear_following_features(features, i, result, result_tested)
+                        
+                        # set feature untested and test again
+                        result[cnf_id] = None
+                        result_tested[cnf_id] = []
+                        v = random.randint(0, 1) > 0
+                        
+                        '''
+                        # pick most constrained value if feature has constraints
+                        if len(self.constraint_graph[cnf_id]) > 0:
+                            c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
+                            v = c.get_value(cnf_id)
+                        '''
+                        
+                        # set picked value as tested for given feature
+                        result_tested[cnf_id].append(v)
+                        if not self._solve(cnf_id, result, v):
+                            # test opposite if this didn't solve
+                            result_tested[cnf_id].append(not v)
+                            if not self._solve(cnf_id, result, not v):
+                                prev_i = i
+                                i = self._step_back(features, i, result, result_tested)
+                                continue
+                    else:
+                        prev_i = i
+                        i = self._step_back(features, i, result, result_tested)
+                        continue
+            prev_i = i
+            i = self._next_idx(features, i)
+        return True
+
+    def _solve_feature_values(self, features, result, result_tested):
+        ''' Solves missing values for features in result identified by cnf_id's listed in features.
+            result_tested stores information about previously tested values of a feature. '''
+        i = 0
         while i < len(features):
             if i < 0:
                 return False
@@ -224,20 +341,21 @@ class CSPSolver(object):
             if result[cnf_id] == None:
 
                 v = random.randint(0, 1) > 0
-
+                
+                '''
                 # pick most constrained value if feature has constraints
                 if len(self.constraint_graph[cnf_id]) > 0:
                     c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
                     v = c.get_value(cnf_id)
-
+                '''
+                
                 # set picked value as tested for given feature
                 result_tested[cnf_id].append(v)
-                if not self._solve(cnf_id, result, v, result_tested):
+                if not self._solve(cnf_id, result, v):
                     # test opposite if this didn't solve
                     result_tested[cnf_id].append(not v)
-                    if not self._solve(cnf_id, result, not v, result_tested):
-                        i = self._step_back(features, i, result, result_tested, not cleared)
-                        cleared = True
+                    if not self._solve(cnf_id, result, not v):
+                        i = self._step_back(features, i, result, result_tested)
                         continue
 
             # pick value from untested
@@ -246,34 +364,27 @@ class CSPSolver(object):
                 if len(result_tested[cnf_id]) == 1:
                     v = not result_tested[cnf_id][0]
                     result_tested[cnf_id].append(v)
-                    if not self._solve(cnf_id, result, v, result_tested):
-                        i = self._step_back(features, i, result, result_tested, not cleared)
-                        cleared = True
+                    if not self._solve(cnf_id, result, v):
+                        i = self._step_back(features, i, result, result_tested)
                         continue
                 # backtrack if all values tested for feature id
                 else:
-                    i = self._step_back(features, i, result, result_tested, not cleared)
-                    cleared = True
+                    i = self._step_back(features, i, result, result_tested)
                     continue
 
             i = self._next_idx(features, i)
         return True
 
-    def _step_back(self, features, i, result, result_tested, clear=False):
+    def _step_back(self, features, i, result, result_tested):
         ''' Clears tested values and set value for feature referenced by 
-            cnf_id equal to features[i]. If clear equals True all values
-            of features referenced by features identified by features[a],
-            (where i < a < len(features)) will also be cleared.
-            Returns self._prev_idx(features, i) of i. '''
+            cnf_id equal to features[i]. Returns self._prev_idx(features, i) of i. '''
         result_tested[features[i]] = []
         result[features[i]] = None
-        if clear:
-            self._clear_following_features(features, i, result, result_tested)
         return self._prev_idx(features, i)
 
     def _clear_following_features(self, features, i, result, result_tested):
         ''' clears all feature values and tested values for features following i in features. '''
-        temp = i
+        temp = self._next_idx(features, i)
         while temp < len(features):
             result[features[temp]] = None
             result_tested[features[temp]] = []
@@ -304,12 +415,12 @@ class CSPSolver(object):
             print " > Picked Value for feature.id="+str(cnf_id)+" is "+str(v)
             '''
         else:
-            idx = random.randint(0, len(self.constraint_graph[cnf_id]) - 1)
+            idx = random.randint(0, len(constraint_ids) - 1)
             c_id = constraint_ids[idx]
             return self.constraints['clauses'][c_id - 1]
 
-    def _solve(self, cnf_id, result, value, result_tested):
-        ''' Recursive Helper function for _satisfy_constraints, to solve the value for a single constraint. '''
+    def _solve(self, cnf_id, result, value):
+        ''' Tests value for feature in result referenced by cnf_id. '''
         prev = result[cnf_id]
         result[cnf_id] = value
 
@@ -318,10 +429,5 @@ class CSPSolver(object):
             if self.constraints['clauses'][c_id - 1].is_violated_by(result):
                 result[cnf_id] = prev
                 return False
-                # elif not self.constraints['clauses'][c_id-1].is_solved_by_list(result):
-                #  unsatisfied.append(c_id)
 
-        return True  # self._satisfy_constraints(unsatisfied, result, result_tested)
-
-    def _satisfy_constraints(self, unsatisfied, result, result_tested):
-        pass
+        return True

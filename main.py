@@ -14,6 +14,10 @@ from csp_solver import CSPSolver
 import random
 import utility
 import copy
+import json
+import os
+import os.path
+import datetime
 
 # used for plotting
 import numpy
@@ -23,6 +27,40 @@ FEATURE_PATH = ""
 INTERACTION_PATH = ""
 MODEL_PATH = ""
 CNF_PATH = ""
+
+
+def write_json_to_file(json_dict, file_name):
+    ''' (over)writes contents of json_dict into file referenced by file_name. '''
+    with open(file_name, 'w') as file:
+        json.dump(json_dict, file, sort_keys=True, indent=4, separators=(',', ': '))
+        file.close()
+
+
+def extend_json_log(json_dict, file_name):
+    ''' appends contents of json_dict to logging structure 
+        in JSON file referenced by file_name. '''
+    time_stamp = str(datetime.datetime.now())
+    full_json = None
+    if not os.path.isfile(file_name) or os.stat(file_name).st_size == 0:
+        full_json = {time_stamp: json_dict}
+    else:
+        with open(file_name, 'r') as file:
+            full_json = json.load(file)
+            file.close()
+        full_json[time_stamp] = json_dict
+    if 'best' in json_dict:
+        if 'best' in full_json:
+            if json_dict['best']['fitness'] < full_json['best']['fitness']:
+                full_json['best'] = json_dict['best']
+                full_json['best']['time_stamp'] = time_stamp
+        else:
+            full_json['best'] = json_dict['best']
+            full_json['best']['time_stamp'] = time_stamp
+    write_json_to_file(full_json, file_name)
+
+
+def clear_json_log(file_name):
+    write_json_to_file({}, file_name)
 
 
 def brute_force(file_name, verbose):
@@ -199,18 +237,16 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
 
     # init list for best solutions
-    best_size = 5
     best_solutions = []
-    for i in range(best_size):
-        best_solutions.append(None)
 
     # init random pheromone trails
     evapo_rate = 0.4
     learn_rate = 0.8
     base_value = 0
-    pheromones = {}
+    pheromones = {"values": {}, "rand_p": 1.0}
     for idx, f in CandidateSolution.features.items():
-        pheromones[f.cnf_id] = base_value
+        pheromones["values"][f.cnf_id] = base_value
+    csp_solver.GLOBAL_INSTANCE.pheromones = pheromones
 
     # init random population
     print("Init population")
@@ -227,12 +263,15 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
 
         # assess fitness and create pheromone trail
         for candidate in population:
+            print(len(population))
             fitness = candidate.get_fitness()
             print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
-            for idx, best in enumerate(best_solutions):
-                if best is None or fitness < best.get_fitness():
-                    best_solutions[idx] = candidate
-                    break
+            if len(best_solutions) <= 5:
+                best_solutions.append(candidate)
+            else:
+                if best_solutions[-1].get_fitness() > fitness:
+                    best_solutions[-1] = candidate
+                    sort_population_by_fitness(best_solutions)
 
         # evaporate pheromones (decrease them a bit)
         # for idx in pheromones:
@@ -242,10 +281,10 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         for candidate in best_solutions:
             for idx, is_set in candidate.get_features().items():
                 if is_set:
-                    val = pheromones[idx]
+                    val = pheromones["values"][idx]
                     fitness = 1 / candidate.get_fitness()
-                    pheromones[idx] += 1
-                    #pheromones[idx] = (1 - learn_rate) * val + learn_rate * fitness
+                    pheromones["values"][idx] += 1
+                    # pheromones[idx] = (1 - learn_rate) * val + learn_rate * fitness
 
         # sort by best
         sort_population_by_fitness(population)
@@ -257,10 +296,24 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         population = breed(breeding_q, pop_size)
 
         gen_counter += 1
-        print(pheromones)
+        print(pheromones["values"])
 
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
+
+    result = {
+        'best': {'id': best_solutions[0].get_id(), 'fitness': best_solutions[0].get_fitness()},
+        'best_solutions': [],
+        'population_size': pop_size,
+        'generations': generations,
+        'selection_size': selection_size
+    }
+
+    for sol in best_solutions:
+        print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
+        result['best_solutions'].append(sol.as_dict())
+
+    return result
 
 
 def test_csp_solver(file_name, verbose):
@@ -325,6 +378,10 @@ if __name__ == "__main__":
     # test_csp_solver('src/project_public_1/toybox', verbose=True)
 
     simple_evolution_template(2, 20, 5)
+
+    # clear_json_log('src/project_public_2/toy_box_res.json')
+    extend_json_log(simple_evolution_template(1, 10000, 5), 'src/project_public_2/toy_box_test.json')
+
     """
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'

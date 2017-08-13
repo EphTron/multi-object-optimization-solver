@@ -142,3 +142,12 @@ class CandidateSolution:
         ''' deep copy of candidate_solution data. '''
         self._features = {f_name: c._features[f_name] for f_name in c._features}
         self._feature_list = [f for f in self._features.values() if f is not None]
+    
+    def as_dict(self):
+        ''' format all class attributes into a dict.
+            Used for generating JSON output. '''
+        return {
+            'id':self._id,
+            'fitness':self.get_fitness(),
+            'features':self.get_features()
+        }

@@ -16,6 +16,7 @@ import utility
 import copy
 import json
 import os
+import os.path
 import datetime
 
 # used for plotting
@@ -36,14 +37,23 @@ def write_json_to_file(json_dict, file_name):
 def extend_json_log(json_dict, file_name):
     ''' appends contents of json_dict to logging structure 
         in JSON file referenced by file_name. '''
-    full_json = None
-    if os.stat(file_name).st_size == 0:
-        full_json = {str(datetime.datetime.now()):json_dict}
+    time_stamp = str(datetime.datetime.now())
+    full_json = None 
+    if not os.path.isfile(file_name) or os.stat(file_name).st_size == 0:
+        full_json = {time_stamp:json_dict}
     else:
         with open(file_name, 'r') as file:
             full_json = json.load(file)
             file.close()
-        full_json[str(datetime.datetime.now())] = json_dict
+        full_json[time_stamp] = json_dict
+    if 'best' in json_dict:
+        if 'best' in full_json:
+            if json_dict['best']['fitness'] < full_json['best']['fitness']:
+                full_json['best'] = json_dict['best']
+                full_json['best']['time_stamp'] = time_stamp
+        else:
+            full_json['best'] = json_dict['best']
+            full_json['best']['time_stamp'] = time_stamp
     write_json_to_file(full_json, file_name)
     
 def clear_json_log(file_name):
@@ -221,10 +231,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
 
     # init list for best solutions
-    best_size = 5
     best_solutions = []
-    for i in range(best_size):
-        best_solutions.append(None)
 
     # init random population
     print("Init population")
@@ -241,12 +248,15 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
 
         # assess fitness and create pheromone trail
         for candidate in population:
+            print len(population)
             fitness = candidate.get_fitness()
             print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
-            for idx, best in enumerate(best_solutions):
-                if best is None or fitness < best.get_fitness():
-                    best_solutions[idx] = candidate
-                    break
+            if len(best_solutions) <= 5:
+                best_solutions.append(candidate)
+            else:
+                if best_solutions[-1].get_fitness() > fitness:
+                    best_solutions[-1] = candidate
+                    sort_population_by_fitness(best_solutions)
 
         # sort by best
         sort_population_by_fitness(population)
@@ -333,7 +343,7 @@ if __name__ == "__main__":
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
     
     # clear_json_log('src/project_public_2/toy_box_res.json')
-    extend_json_log(simple_evolution_template(1, 100, 5), 'src/project_public_2/toy_box_res.json')
+    extend_json_log(simple_evolution_template(1, 10000, 5), 'src/project_public_2/toy_box_test.json')
     
     """
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'

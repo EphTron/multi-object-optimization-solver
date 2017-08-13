@@ -5,6 +5,9 @@ GLOBAL_INSTANCE = None
 
 
 class CSPSolver(object):
+
+    pheromones = None
+    
     def __init__(self, constraints):
         self.constraints = constraints
         self.primitive_constraints = None
@@ -120,6 +123,9 @@ class CSPSolver(object):
 
         self.solve_primitive(result, result_tested)
 
+        if self.pheromones != None:
+            self._calc_pheromone_properties()
+
         i = 0
         for space in self.feature_spaces:
             # print("Starting space", i, " (length:", len(space), ")")
@@ -185,10 +191,12 @@ class CSPSolver(object):
                 result_tested[cnf_id] = [True, False]
                 useless.append(cnf_id)
         a = sum([len(space) for space in self.feature_spaces])
+        '''
         print("PRIMITIVE FEATURES:", useless)
         print("FEATURES added from spaces", self.feature_spaces)
         print("FEATURES sum", len(useless) + a)
         print("FEATURES expected", len(result))
+        '''
 
     def _next_idx(self, feature_ids, current_i):
         ''' Helper function for generate_feaure_vector to determine index of next feature to be tested.
@@ -327,20 +335,57 @@ class CSPSolver(object):
             i = self._next_idx(features, i)
         return True
 
+    def _calc_pheromone_properties(self):
+        ''' Calculates the non-zero median of all pheromone values. '''
+        max_pheromones = [v for v in self.pheromones["values"].values() if v > 0.0]
+        max_pheromones.sort()
+        median = None
+        if len(max_pheromones) > 1:
+            self.pheromones["median"] = max_pheromones[int(len(max_pheromones)/2)]
+        else:
+            self.pheromones["median"] = 0.0
+        self.pheromones["max"] = max(self.pheromones["values"].values())
+        # print("PHEROMONE median:"+str(self.pheromones["median"])+" max:"+str(self.pheromones["max"]))
+
+    def _calc_value_from_pheromones(self, cnf_id):
+        ''' Helper function to derive initial feature value
+            from pheromones. '''
+        #print(self.pheromones["rand_p"])
+        if self.pheromones["max"] > 0.0:
+            v = self.pheromones["values"][cnf_id]
+            if v/self.pheromones["max"] > random.uniform(0.0,1.0):
+                #print("v:"+str(v)+" max:"+str(self.pheromones["max"])+" cnf_id:"+str(cnf_id))
+                return True
+            else:
+                return False
+        v = random.randint(0,1) > 0
+        #print("return "+str(v))
+        return v
+        '''
+        if self.pheromones["median"] > 0.0 and self.pheromones["rand_p"] < random.uniform(0,1):
+            v = self.pheromones["values"][cnf_id]
+            #print ("picking by pheromone") 
+            return v > self.pheromones["median"]
+        return random.randint(0,1) > 0            
+        '''
+
     def _solve_feature_values(self, features, result, result_tested):
         ''' Solves missing values for features in result identified by cnf_id's listed in features.
-            result_tested stores information about previously tested values of a feature. '''
+            result_tested stores information about previously tested values of a feature. '''            
         i = 0
         while i < len(features):
             if i < 0:
                 return False
-
+            
             cnf_id = features[i]
 
             # solve using random value for untested features
             if result[cnf_id] == None:
 
                 v = random.randint(0, 1) > 0
+
+                if self.pheromones != None:
+                    v = self._calc_value_from_pheromones(cnf_id)
                 
                 '''
                 # pick most constrained value if feature has constraints
@@ -357,6 +402,8 @@ class CSPSolver(object):
                     if not self._solve(cnf_id, result, not v):
                         i = self._step_back(features, i, result, result_tested)
                         continue
+                else:
+                    pass#print("SSOOOOOOLVED")
 
             # pick value from untested
             else:
@@ -423,11 +470,12 @@ class CSPSolver(object):
         ''' Tests value for feature in result referenced by cnf_id. '''
         prev = result[cnf_id]
         result[cnf_id] = value
-
+        
+        # TODO making constraints great again
         unsatisfied = []
         for c_id in self.constraint_graph[cnf_id]:
             if self.constraints['clauses'][c_id - 1].is_violated_by(result):
                 result[cnf_id] = prev
                 return False
-
+        
         return True

@@ -208,8 +208,8 @@ def breed(solutions_for_breeding, pop_size):
     while len(new_population) <= pop_size:
         for solution in solutions_for_breeding:
             if len(new_population) <= pop_size:
-                copied_solution = copy.deepcopy(solution)
-                tweaked_solution = tweak(copied_solution)
+                #copied_solution = copy.deepcopy(solution)
+                tweaked_solution = CandidateSolution(csp_solver.GLOBAL_INSTANCE.generate_feature_vector())#tweak(copied_solution)
                 new_population.append(tweaked_solution)
     return new_population
 
@@ -222,7 +222,7 @@ def tweak_based_on_pheromones(candidate, ):
     return candidate
 
 
-def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verbose=False):
+def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best_size=1, verbose=False):
     # init parser, features, interactions
     CandidateSolution.features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
         "obsolete",
@@ -240,12 +240,13 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
     best_solutions = []
 
     # init random pheromone trails
-    evapo_rate = 0.4
-    learn_rate = 0.8
-    base_value = 0
+    evapo_rate = 0.1
+    learn_rate = 0.5
+    base_value = 0.0
     pheromones = {"values": {}, "rand_p": 1.0}
     for idx, f in CandidateSolution.features.items():
-        pheromones["values"][f.cnf_id] = base_value
+        if f.cnf_id != None:
+            pheromones["values"][f.cnf_id] = 1/candidate_solution.get_feature_cost(f.cnf_id)
     csp_solver.GLOBAL_INSTANCE.pheromones = pheromones
 
     # init random population
@@ -260,31 +261,40 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
 
     gen_counter = 0
     while gen_counter < generations:
-
-        # assess fitness and create pheromone trail
+        pheromones["rand_p"] = max(min(1-(gen_counter/float(generations)), 0.8), 0.1)
+        print("========== NEW GENERATION STARTED "+str(gen_counter)+str(" =========="))
+        fitness_sum = 0.0
+        # assess fitness and create pheromone trail        
         for candidate in population:
-            print(len(population))
+            # print(len(population))
             fitness = candidate.get_fitness()
+            fitness_sum += fitness
             print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
-            if len(best_solutions) <= 5:
+            for idx, is_set in candidate.get_features().items():
+                if is_set:
+                    pheromones["values"][idx] += 1/candidate_solution.get_feature_cost(idx)+1/fitness
+            if len(best_solutions) < best_size:
                 best_solutions.append(candidate)
             else:
                 if best_solutions[-1].get_fitness() > fitness:
+                    print("BEST CHANGED\n > new fitness", fitness)
                     best_solutions[-1] = candidate
                     sort_population_by_fitness(best_solutions)
-
+        print(" > fitness sum:"+str(fitness_sum)+"\n > fitness average:"+str(fitness_sum/pop_size))
+        print(" > best:"+str(best_solutions[0].get_fitness()))
         # evaporate pheromones (decrease them a bit)
-        # for idx in pheromones:
-        #     val = pheromones[idx]
-        #     pheromones[idx] = (1-evapo_rate) * val + evapo_rate * base_value
+        for idx in pheromones["values"]:
+            val = pheromones["values"][idx]
+            pheromones["values"][idx] = (1-evapo_rate) * val + evapo_rate * base_value
 
         for candidate in best_solutions:
             for idx, is_set in candidate.get_features().items():
                 if is_set:
-                    val = pheromones["values"][idx]
-                    fitness = 1 / candidate.get_fitness()
-                    pheromones["values"][idx] += 1
-                    # pheromones[idx] = (1 - learn_rate) * val + learn_rate * fitness
+                    #val = pheromones["values"][idx]
+                    #print idx, pheromones["values"][idx]
+                    pass#fitness = 
+                    #pheromones["values"][idx] += 0.5 * (1 / candidate.get_fitness())
+                    #pheromones["values"][idx] = (1 - learn_rate) * val + learn_rate * fitness
 
         # sort by best
         sort_population_by_fitness(population)
@@ -296,10 +306,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         population = breed(breeding_q, pop_size)
 
         gen_counter += 1
-        print(pheromones["values"])
-
-    for sol in best_solutions:
-        print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
+        # print(pheromones["values"])
 
     result = {
         'best': {'id': best_solutions[0].get_id(), 'fitness': best_solutions[0].get_fitness()},
@@ -308,11 +315,11 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         'generations': generations,
         'selection_size': selection_size
     }
-
+    
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
         result['best_solutions'].append(sol.as_dict())
-
+    
     return result
 
 
@@ -373,14 +380,14 @@ if __name__ == "__main__":
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
-    # test_csp_solver('src/project_public_1/toybox', verbose=True)
-
-    # test_csp_solver('src/project_public_1/toybox', verbose=True)
-
-    simple_evolution_template(2, 20, 5)
-
-    # clear_json_log('src/project_public_2/toy_box_res.json')
-    extend_json_log(simple_evolution_template(1, 10000, 5), 'src/project_public_2/toy_box_test.json')
+    result = simple_evolution_template(
+        generations=20,
+        pop_size=20, 
+        selection_size=5,
+        best_size=1
+    )
+    clear_json_log('src/project_public_2/toy_box_pheromones.json')
+    extend_json_log(result, 'src/project_public_2/toy_box_pheromones.json')
 
     """
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'

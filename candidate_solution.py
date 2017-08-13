@@ -49,9 +49,9 @@ def assess_fitness(candidate, interactions=None):
         for i in interactions:
             interaction_fitness += i.get_value(features)
 
-    print("Calculated feature fitness" , feature_fitness)
+    # print("Calculated feature fitness" , feature_fitness)
 
-    return feature_fitness + interaction_fitness
+    return feature_fitness + interaction_fitness # TODO comment back in
 
 
 def arbitrary_crossover(p1, p2, ensure_valid=True):
@@ -77,6 +77,21 @@ def get_feature_by_id(id):
     feature = next((f for key, f in CandidateSolution.features.items() if f.cnf_id == id), None)
     return feature
 
+def get_feature_cost(id):
+    if CandidateSolution.min_feature_value == None:
+        feature_values = [f.value for f in CandidateSolution.features.values()]
+        CandidateSolution.min_feature_value = min(feature_values)
+        CandidateSolution.max_feature_value = max(feature_values)
+    feature_name = CandidateSolution.cnf["cnf_id_to_f_name"][id]
+    feature = CandidateSolution.features[feature_name]
+    v = get_feature_by_id(id).value
+    return map_to_range(v, CandidateSolution.min_feature_value, CandidateSolution.max_feature_value, 1, 100)
+    
+def map_to_range(value=-0.3, old_min=-0.5, old_max=0.5, new_min=0, new_max=1):
+    old_range = (old_max - old_min)
+    new_range = (new_max - new_min)
+    new_value = (((value - old_min) * new_range) / old_range) + new_min
+    return new_value
 
 class CandidateSolution:
     ''' Contains a configuration of features in a dict.
@@ -86,6 +101,8 @@ class CandidateSolution:
     interactions = None
     cnf = None
     number_of_instances = 0
+    max_feature_value = None
+    min_feature_value = None
 
     def __init__(self, features={}):
         self._id = CandidateSolution.number_of_instances

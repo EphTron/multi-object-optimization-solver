@@ -73,13 +73,20 @@ class CandidateSolution:
 
     interactions = None
     cnf = None
+    number_of_instances = 0
 
     def __init__(self, features={}):
+        self._id = CandidateSolution.number_of_instances
+        CandidateSolution.number_of_instances += 1
+
         self._features = features
         self._feature_list = [f for f in self._features.values() if f is not None]
         self._fitness = None
         if CandidateSolution.interactions != None:
             self.calc_fitness()
+
+    def get_id(self):
+        return self._id
 
     def calc_fitness(self):
         self._fitness = assess_fitness(self, CandidateSolution.interactions)

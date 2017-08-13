@@ -21,8 +21,7 @@ def plot_generation_boxplot(ax, population, generation):
 
     ax.boxplot(data, positions=[generation])
 
-    ax.set_xlim(-0.5, generation+0.5)
-
+    ax.set_xlim(-0.5, generation + 0.5)
 
 
 def get_candidate_vector(solution_candidate):

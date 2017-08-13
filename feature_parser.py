@@ -4,6 +4,7 @@ from constraint_clause import ConstraintClause
 from feature_interaction import FeatureInteraction
 import os.path
 
+
 def parse(path_prefix, feature_path="", interaction_path="", model_path="", cnf_path="", verbose=False):
     fp = FeatureParser(path_prefix, feature_path, interaction_path, model_path, cnf_path)
     features, interactions, cnf = fp.parse()
@@ -40,7 +41,7 @@ class FeatureParser(object):
         self.cnf_path = cnf_path
         self.parsed_features = {}
         self.parsed_interactions = []
-        self.parsed_cnf = { 'p_line':None, 'clauses':[], 'cnf_id_to_f_name':{} }
+        self.parsed_cnf = {'p_line': None, 'clauses': [], 'cnf_id_to_f_name': {}}
 
     def _create_dict_from_txt(self, path):
         """
@@ -62,28 +63,28 @@ class FeatureParser(object):
             Dictonary is also stored by class (see FeatureParser.parsed_features).'''
         # compile list of Feature objects from txt
         features = {
-            name: Feature(name, value) 
-                for name, value in self._create_dict_from_txt(self.feature_path).items()
+            name: Feature(name, value)
+            for name, value in self._create_dict_from_txt(self.feature_path).items()
         }
-        
+
         # compile list of FeatureInteractions from txt
         interactions = [
-            FeatureInteraction(key.split('#'), value) 
-                for key, value in self._create_dict_from_txt(self.interaction_path).items()
+            FeatureInteraction(key.split('#'), value)
+            for key, value in self._create_dict_from_txt(self.interaction_path).items()
         ]
-        
+
         # check to see if xml model exists and extend features if found
         if os.path.isfile(self.model_path):
             self._parse_xml_model(features, self.model_path)
 
         # check to see if cnf file exists and extend features if found
         if os.path.isfile(self.cnf_path):
-            self._parse_cnf(features, self.cnf_path)        
+            self._parse_cnf(features, self.cnf_path)
 
         self.parsed_interactions = interactions
         self.parsed_features = features
         return self.parsed_features, self.parsed_interactions, self.parsed_cnf
-    
+
     def _parse_xml_model(self, features, f_name):
         ''' HELPER FUNCTION for parse.
             parses an xml model file with given f_name
@@ -91,7 +92,7 @@ class FeatureParser(object):
         # parse xml doc to get xml_feature list
         xml_doc = minidom.parse(f_name)
         xml_feature_list = xml_doc.getElementsByTagName('configurationOption')
-        
+
         # extract info for all retrieved model features
         feature_excludes = {}
         for xml_feature in xml_feature_list:
@@ -110,7 +111,7 @@ class FeatureParser(object):
                 feature_excludes[f_name] = self._get_text_list_of_fields(xml_exclude_options, 'options')
             else:
                 feature_excludes[f_name] = []
-            
+
         # compile list of exclude_features for each Feature
         # given string dictionary extracted from xml
         for key in features:
@@ -119,7 +120,7 @@ class FeatureParser(object):
             else:
                 f = features[key]
                 f.exclude_features = [features[f_name] for f_name in feature_excludes[key]]
-    
+
     def _parse_cnf(self, features, f_name):
         ''' HELPER function for parse.
             Parses a DIMACS CNF file to extend features with cnf_id
@@ -130,7 +131,7 @@ class FeatureParser(object):
             lines = file.read().replace("$ ", " ").split("\n")
         self.parsed_cnf['cnf_id_to_f_name'] = {}
         clauses = []
-        p_line = {'cnf':'','nbvar':0,'nbclauses':0}
+        p_line = {'cnf': '', 'nbvar': 0, 'nbclauses': 0}
         current_clause = []
         for line in lines:
             words = line.split(" ")
@@ -147,9 +148,9 @@ class FeatureParser(object):
                 if len(words) != 4:
                     continue
                 p_line = {
-                    'cnf' : words[1],
-                    'nbvar' : int(words[2]),
-                    'nbclauses' : int(words[3])
+                    'cnf': words[1],
+                    'nbvar': int(words[2]),
+                    'nbclauses': int(words[3])
                 }
             else:
                 for w in words:
@@ -157,7 +158,7 @@ class FeatureParser(object):
                         continue
                     var = int(w)
                     if var == 0:
-                        clauses.append(ConstraintClause(current_clause, len(clauses)+1))
+                        clauses.append(ConstraintClause(current_clause, len(clauses) + 1))
                         current_clause = []
                     else:
                         current_clause.append(var)
@@ -181,7 +182,8 @@ class FeatureParser(object):
         str_list = []
         for e in dom_elmt.getElementsByTagName(field_name):
             str_list.append(self._get_text(e.childNodes))
-        return str_list    
+        return str_list
+
 
 if __name__ == '__main__':
     features, interactions, cnf = parse('src/project_public_1/bdbc')

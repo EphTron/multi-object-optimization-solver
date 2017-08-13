@@ -1,6 +1,7 @@
 ﻿import random
 import csp_solver
 
+
 def generate_random(feature_dict={}, ensure_valid=True):
     ''' Brute force generation of valid candidate solution.
     feature_dict contains ALL possible features. '''
@@ -16,7 +17,7 @@ def generate_random(feature_dict={}, ensure_valid=True):
                 else:
                     if f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
                         f_dict[key] = feature_dict[key]
-                    elif -1*f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
+                    elif -1 * f.cnf_id in csp_solver.GLOBAL_INSTANCE.primitive_constraints:
                         f_dict[key] = None
                     else:
                         gen_random = True
@@ -64,7 +65,8 @@ def arbitrary_crossover(p1, p2, ensure_valid=True):
             c1 = None
             c2 = None
     return c1, c2
-    
+
+
 class CandidateSolution:
     ''' Contains a configuration of features in a dict.
     Unset features have a None value for specific key. '''

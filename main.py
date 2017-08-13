@@ -180,6 +180,10 @@ def tweak(candidate):
     return candidate
 
 
+def tweak_based_on_pheromones(candidate, ):
+    return candidate
+
+
 def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verbose=False):
     # init parser, features, interactions
     CandidateSolution.features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
@@ -190,8 +194,6 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         cnf_path=CNF_PATH,
         verbose=verbose
     )
-    # CandidateSolution.features,
-    # print("ALL ", features)
 
     if CandidateSolution.cnf is not None:
         csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
@@ -201,6 +203,14 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
     best_solutions = []
     for i in range(best_size):
         best_solutions.append(None)
+
+    # init random pheromone trails
+    evapo_rate = 0.4
+    learn_rate = 0.8
+    base_value = 0
+    pheromones = {}
+    for idx, f in CandidateSolution.features.items():
+        pheromones[f.cnf_id] = base_value
 
     # init random population
     print("Init population")
@@ -224,6 +234,19 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
                     best_solutions[idx] = candidate
                     break
 
+        # evaporate pheromones (decrease them a bit)
+        # for idx in pheromones:
+        #     val = pheromones[idx]
+        #     pheromones[idx] = (1-evapo_rate) * val + evapo_rate * base_value
+
+        for candidate in best_solutions:
+            for idx, is_set in candidate.get_features().items():
+                if is_set:
+                    val = pheromones[idx]
+                    fitness = 1 / candidate.get_fitness()
+                    pheromones[idx] += 1
+                    #pheromones[idx] = (1 - learn_rate) * val + learn_rate * fitness
+
         # sort by best
         sort_population_by_fitness(population)
 
@@ -234,9 +257,10 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
         population = breed(breeding_q, pop_size)
 
         gen_counter += 1
-    
+        print(pheromones)
+
     for sol in best_solutions:
-        print("id:"+str(sol.get_id())+" fitness:"+str(sol.get_fitness()))
+        print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
 
 
 def test_csp_solver(file_name, verbose):
@@ -286,7 +310,7 @@ def test_fix_vector(file_name, verbose):
         if vec is not None and meets_all_constraints(vec):
             print(" > Meets all constraints")
         elif vec is None:
-            print(" > Candidate is None.")            
+            print(" > Candidate is None.")
         else:
             print(" > Does not meet all constraints")
     return
@@ -296,11 +320,11 @@ if __name__ == "__main__":
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
-    #test_csp_solver('src/project_public_1/toybox', verbose=True)
+    # test_csp_solver('src/project_public_1/toybox', verbose=True)
 
     # test_csp_solver('src/project_public_1/toybox', verbose=True)
 
-    simple_evolution_template(1, 5000, 5)
+    simple_evolution_template(2, 20, 5)
     """
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'

@@ -122,7 +122,7 @@ class CSPSolver(object):
 
         i = 0
         for space in self.feature_spaces:
-            print("Starting space", i, " (length:", len(space), ")")
+            # print("Starting space", i, " (length:", len(space), ")")
             if not self._solve_feature_values(space, result, result_tested):
                 print("Failure: Contradicting cnf File")
                 return None

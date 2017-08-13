@@ -14,6 +14,9 @@ from csp_solver import CSPSolver
 import random
 import utility
 import copy
+import json
+import os
+import datetime
 
 # used for plotting
 import numpy
@@ -24,6 +27,27 @@ INTERACTION_PATH = ""
 MODEL_PATH = ""
 CNF_PATH = ""
 
+def write_json_to_file(json_dict, file_name):
+    ''' (over)writes contents of json_dict into file referenced by file_name. '''
+    with open(file_name, 'w') as file:
+        json.dump(json_dict, file, sort_keys=True, indent=4, separators=(',', ': '))
+        file.close()
+
+def extend_json_log(json_dict, file_name):
+    ''' appends contents of json_dict to logging structure 
+        in JSON file referenced by file_name. '''
+    full_json = None
+    if os.stat(file_name).st_size == 0:
+        full_json = {str(datetime.datetime.now()):json_dict}
+    else:
+        with open(file_name, 'r') as file:
+            full_json = json.load(file)
+            file.close()
+        full_json[str(datetime.datetime.now())] = json_dict
+    write_json_to_file(full_json, file_name)
+    
+def clear_json_log(file_name):
+    write_json_to_file({}, file_name)
 
 def brute_force(file_name, verbose):
     features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
@@ -235,8 +259,19 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, verb
 
         gen_counter += 1
     
+    result = {
+        'best':{'id':best_solutions[0].get_id(), 'fitness':best_solutions[0].get_fitness()},
+        'best_solutions':[], 
+        'population_size':pop_size, 
+        'generations':generations, 
+        'selection_size':selection_size
+    }
+    
     for sol in best_solutions:
         print("id:"+str(sol.get_id())+" fitness:"+str(sol.get_fitness()))
+        result['best_solutions'].append(sol.as_dict())
+    
+    return result
 
 
 def test_csp_solver(file_name, verbose):
@@ -296,11 +331,10 @@ if __name__ == "__main__":
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
-    #test_csp_solver('src/project_public_1/toybox', verbose=True)
-
-    # test_csp_solver('src/project_public_1/toybox', verbose=True)
-
-    simple_evolution_template(1, 5000, 5)
+    
+    # clear_json_log('src/project_public_2/toy_box_res.json')
+    extend_json_log(simple_evolution_template(1, 100, 5), 'src/project_public_2/toy_box_res.json')
+    
     """
     FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
     INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'

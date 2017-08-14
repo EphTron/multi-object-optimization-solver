@@ -34,16 +34,9 @@ def meets_all_constraints(feature_vector):
                 return False
     return True
 
-
-def sort_population_by_fitness(pop):
-    pop.sort(key=lambda x: x.get_fitness(0), reverse=False)
-
 def sort_population_by_pareto_rank(pop):
     pop.sort(key=lambda x: x.pareto_rank)
-
-def most_common(lst):
-    return max(set(lst), key=lst.count)
-
+    
 def remove_same_by_fitness(candidates):
     b = list(set([c.get_fitness_sum() for c in candidates]))
     temp = []
@@ -54,23 +47,6 @@ def remove_same_by_fitness(candidates):
                 temp.append(c)
                 break
     return temp
-        
-    '''
-    temp = [c for c in candidates]
-    for c in candidates:
-        kill_candidates = []
-        for other_c in temp:
-            if other_c == c:
-                continue
-            c_val = sum(c.get_fitness_values())
-            other_c_val = sum(other_c.get_fitness_values())
-            if abs(c_val-other_c_val) < EPSILON:
-                kill_candidates.append(other_c)
-        while len(kill_candidates) > 0:
-            temp.remove(kill_candidates[-1])
-            kill_candidates.pop()
-    return temp
-    '''
 
 def calc_sparsity(candidates):
     ''' Calculates sparsity for all candidates. 
@@ -124,29 +100,28 @@ def calc_pareto_ranks(candidates, i=0):
     
     calc_pareto_ranks([c for c in candidates if c not in front], i+1)
 
-def breed(solutions_for_breeding, pop_size):
+def generate_new_population(pop_size, check_constraints=False):
+    ''' Creates list of CandidateSolutions with length equal to pop_size. 
+        if check_constraints is set True given CSP constraints will be checked 
+        on each feature vector generated before creating a CandidateSolution from it.
+        This is genereally not necessary, as our CSP solver ensure constraints are met
+        while generating feature vectors. Thus, it will not return invalid vectors.
+        Flipping the check_constraints flag can be used to validate this. '''
     # create new empty pop
     new_population = []
 
     # create children until wanted pop size is reached
     while len(new_population) <= pop_size:
-        for solution in solutions_for_breeding:
-            if len(new_population) <= pop_size:
-                # copied_solution = copy.deepcopy(solution)
-                tweaked_solution = CandidateSolution(
-                    csp_solver.GLOBAL_INSTANCE.generate_feature_vector())  # tweak(copied_solution)
-                new_population.append(tweaked_solution)
+        # csp solver uses pheromones for vector generation
+        vec = csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
+        if not check_constraints or meets_all_constraints(vec):
+            new_population.append(CandidateSolution(vec))
+        else:
+            print "INVALID SOLUTION"
+            
     return new_population
-
-
-def tweak(candidate):
-    return candidate
-
-
-def tweak_based_on_pheromones(candidate, ):
-    return candidate
-
-def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best_size=1, verbose=False):
+    
+def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
     CandidateSolution.model = feature_parser.parse(
         feature_paths=FEATURE_PATHS,
         interaction_paths=INTERACTION_PATHS,
@@ -162,10 +137,11 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
     best_solutions = []
 
     # init random pheromone trails
-    adaptive_evapo_rate = 1
-    evapo_rate = 0.3  # 0.1
+    evapo_rate = 0.3  # 0.3
     learn_rate = 0.5  # 0.5
-
+    
+    # initialize pheromones with summed feature cost for all objectives
+    # rand_p only used for single state optimization
     pheromones = {"values": {}, "rand_p": 0.0, "occu_counter": {}}
     features = CandidateSolution.model.get_features()
     for f_name, f in features.items():
@@ -174,9 +150,6 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             for objective_id in range(0, CandidateSolution.model.get_num_objectives()):
                 cost += (1 / candidate_solution.get_feature_cost(f.cnf_id, objective_id))
             pheromones["values"][f.cnf_id] = cost
-
-            # occurrences counter
-            pheromones["occu_counter"][f.cnf_id] = 0
 
     csp_solver.GLOBAL_INSTANCE.pheromones = pheromones
 
@@ -204,28 +177,18 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             for objective_id in range(0, CandidateSolution.model.get_num_objectives()):
                 cost += (1 / candidate_solution.get_feature_cost(idx, objective_id))
             pheromones["values"][idx] = (1 - evapo_rate) * val + evapo_rate * cost
-            pheromones["occu_counter"][idx] = 0
-            # pheromones["values"][idx] = (1 - evapo_rate) * val + evapo_rate * cost # base_value
-
+            
         # extend population with best from previous generation
         population.extend(best_solutions)
+        
         # generate pareto properties and sort population accordingly
         calc_pareto_ranks(population)
         sort_population_by_pareto_rank(population)
-        '''
-        for candidate in population:
-            print("================")
-            print(" > pareto_rank:"+str(candidate.pareto_rank))
-            print(" > values:"+str(candidate.get_fitness_values()))
-        '''
+        
         # append to best solutions from pareto ranked
         best_solutions = []
-        rank_0 = [c for c in population if c.pareto_rank == 0]
-        print(len(rank_0))
-        rank_0 = remove_same_by_fitness(rank_0)
-        print(len(rank_0))
+        rank_0 = remove_same_by_fitness([c for c in population if c.pareto_rank == 0])
         if len(rank_0) >= best_size:
-            print("NOW LOOK AT DIS SPARSITY")
             calc_sparsity(rank_0)
             rank_0.sort(key=lambda x: x.sparsity, reverse=True)
             best_solutions = rank_0[:best_size]
@@ -244,12 +207,8 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
                 if not same:
                     best_solutions.append(c)
         
-        # TODO: handle this
         if len(best_solutions) < best_size:
             print("best size not reached\n > size is"+str(len(best_solutions)))
-        #while len(best_solutions) < best_size:
-        #    best_solutions.append(best_solutions[0])
-        
         
         # get min and max fitness values 
         # for all objectives of best candidates
@@ -276,104 +235,36 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             for idx, is_set in candidate.get_features().items():
                 if is_set:
                     pheromones["values"][idx] += 20 + 10 * pop_size * 1/sum(mapped_fitness_vals)
-                    # pheromones["occu_counter"][idx] += 1
-                    
-        ##############################
         
-        # select best solutions for breeding
-        breeding_q = population[:selection_size]
+        # generate a new population from pheromones
+        population = generate_new_population(pop_size)
 
-        # breeding: first copy, then tweak or crossover to generate a new population
-        population = breed(breeding_q, pop_size)
-
-        gen_counter += 1
-        # print("Pheromones", pheromones["values"])
-        # print("Occurrences", pheromones["occu_counter"])
-        
+        # log current generation
         for sol in best_solutions:
             print("id:" + str(sol.get_id()) + \
                   " fitness_values:" + str(sol.get_fitness_values()) + \
                   " pareto_rank:" + str(sol.pareto_rank) + \
                   " sparsity:" + str(sol.sparsity))
+        
+        gen_counter += 1
     
 
     result = {
-        'best': {'id': best_solutions[0].get_id(), 'fitness_values': best_solutions[0].get_fitness_values()},
         'best_solutions': [],
+        'best_size': best_size,
         'population_size': pop_size,
-        'generations': generations,
-        'selection_size': selection_size
+        'generations': generations
     }
+    
     phero_info = [(val, idx) for (idx, val) in pheromones["values"].items() if val > 0.3]
     print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
 
     for sol in best_solutions:
-    #    print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         result['best_solutions'].append(sol.as_dict())
 
     return result
 
-
-def test_csp_solver(file_name, verbose):
-    CandidateSolution.model = feature_parser.parse(
-        feature_paths=FEATURE_PATHS,
-        interaction_paths=INTERACTION_PATHS,
-        xml_model_path=XML_MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    cnf = CandidateSolution.model.get_cnf()
-    if cnf != None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
-
-    for i in range(0, 250):
-        print("============== CANDIDATE " + str(i) + " =============")
-
-        vec = csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
-        print(vec)
-        if meets_all_constraints(vec):
-            print(" > Meets all constraints")
-        else:
-            print(" > Does not meet all constraints")
-    return
-
-
-def test_fix_vector(file_name, verbose):
-    CandidateSolution.model = feature_parser.parse(
-        feature_paths=FEATURE_PATHS,
-        interaction_paths=INTERACTION_PATHS,
-        xml_model_path=XML_MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    cnf = CandidateSolution.model.get_cnf()
-    if cnf is not None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
-
-    for i in range(0, 250):
-        print("============== CANDIDATE " + str(i) + " =============")
-        vec = {
-            cnf_id: random.randint(0, 1) > 0 for cnf_id in cnf['cnf_id_to_f_name'].keys()
-        }
-        print(vec)
-        vec = csp_solver.GLOBAL_INSTANCE.fix_feature_vector(vec)
-        print(vec)
-        if vec is not None and meets_all_constraints(vec):
-            print(" > Meets all constraints")
-        elif vec is None:
-            print(" > Candidate is None.")
-        else:
-            print(" > Does not meet all constraints")
-    return
-
-
 if __name__ == "__main__":
-
-    # busy box
-    # FEATURE_PATHS.append('src/project_public_2/busybox-1.198.0_feature.txt')
-    # INTERACTION_PATHS.append( 'src/project_public_2/busybox-1.198.0_interactions.txt')
-    # CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
-
     # toy box
     FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
     FEATURE_PATHS.append('src/project_public_2/toybox_feature2.txt')
@@ -383,13 +274,12 @@ if __name__ == "__main__":
     INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
-    result = simple_evolution_template(
+    result = pareto_burrito_acs(
         generations=100,
-        pop_size=20,
-        selection_size=5,
+        pop_size=10,
         best_size=8,
         verbose=False
     )
     
-    json_helper.clear_json_log('src/project_public_2/toy_box_pheromones.json')
-    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_pheromones.json')
+    json_helper.clear_json_log('src/project_public_2/toy_box_multi_log.json')
+    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_multi_log.json')

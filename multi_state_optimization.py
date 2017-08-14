@@ -121,7 +121,7 @@ def generate_new_population(pop_size, check_constraints=False):
             
     return new_population
     
-def multi_state_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
+def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
     CandidateSolution.model = feature_parser.parse(
         feature_paths=FEATURE_PATHS,
         interaction_paths=INTERACTION_PATHS,
@@ -274,12 +274,12 @@ if __name__ == "__main__":
     INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
-    result = multi_state_burrito_acs(
+    result = pareto_burrito_acs(
         generations=100,
         pop_size=10,
         best_size=8,
         verbose=False
     )
     
-    json_helper.clear_json_log('src/project_public_2/toy_box_pheromones.json')
-    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_pheromones.json')
+    json_helper.clear_json_log('src/project_public_2/toy_box_multi_log.json')
+    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_multi_log.json')

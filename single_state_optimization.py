@@ -4,6 +4,7 @@
 Created on Jun 21.06.17 14:30
 @author: ephtron
 """
+import time
 
 import feature_parser
 import candidate_solution
@@ -11,6 +12,9 @@ from candidate_solution import CandidateSolution
 import csp_solver
 from csp_solver import CSPSolver
 import json_helper
+
+import numpy as np
+import matplotlib.pyplot as plt
 
 import random
 
@@ -100,7 +104,7 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
 
     gen_counter = 0
     best_changed = 0
-
+    generation_info = []
     while gen_counter < generations:
         print("========== NEW GENERATION STARTED " + str(gen_counter) + str(" =========="))
 
@@ -150,7 +154,8 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
             if adaptive_evapo_rate > 1:
                 adaptive_evapo_rate -= 1
         elif same_fitness_count / pop_size < 0.2:
-            adaptive_evapo_rate += 1
+            if adaptive_evapo_rate < 40:
+                adaptive_evapo_rate += 1
 
         # average the pheromones to decrease impact of occurrences
         for idx in pheromones["values"]:
@@ -163,9 +168,11 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
             # increase chance to ignore pheromones
             if pheromones["rand_p"] < (6 / float(feature_count)):
                 pheromones["rand_p"] += 1 / float(feature_count)
+
             elif best_changed > 10:
                 if pheromones["rand_p"] < 0.1:
-                    pheromones["rand_p"] += 3 / float(feature_count)
+                    pass
+                    # pheromones["rand_p"] += 3 / float(feature_count)
         else:
             pheromones["rand_p"] = 0
 
@@ -173,6 +180,11 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
         print("ADAPTION RATE: ", adaptive_evapo_rate)
         print("BEST DIDN'T CHANGE SINCE: ", best_changed)
         print("BREAK OUT PROBABILITY", pheromones["rand_p"])
+
+        # save info of generation for plotting
+        generation_info.append({"best_fitness": best_solutions[0].get_fitness(0),
+                                "fitness_average": fitness_sum / pop_size,
+                                "adaption_rate": adaptive_evapo_rate})
 
         # sort by best
         sort_population_by_fitness(population)
@@ -195,9 +207,37 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         evo_result['best_solutions'].append(sol.as_dict())
-    print("See log file for ")
+
+    # plot infos of our generations
+    plot_bar_chart_of_generation(generation_info)
+
+    print("See log file for feature vector")
 
     return evo_result
+
+
+def plot_bar_chart_of_generation(generation_info):
+    y = [gen["fitness_average"] for gen in generation_info]
+    N = len(y)
+    ind = np.arange(N)  # the x locations for the groups
+    width = 0.15  # the width of the bars
+
+    fig, ax = plt.subplots()
+
+    best_fitness = [gen["best_fitness"] for gen in generation_info]
+    rects1 = ax.bar(ind, best_fitness, width, color='r')
+
+    fitness_average = [gen["fitness_average"] for gen in generation_info]
+    rects2 = ax.bar(ind + width, fitness_average, width, color='y')
+
+    # add some text for labels, title and axes ticks
+    ax.set_ylabel("Fitness")
+    ax.set_title("Fitness Overview")
+    ax.set_xticks(ind + width / 2)
+    ax.set_xticklabels(tuple([i for i, x in enumerate(generation_info)]))
+
+    ax.legend((rects1[0], rects2[0]), ('Best Fitness', 'Fitness Average'))
+    plt.show()
 
 
 def test_csp_solver(verbose):
@@ -263,29 +303,22 @@ if __name__ == "__main__":
     # toy box
     # comment in the feature you want to test
     # FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
-    FEATURE_PATHS.append('src/project_public_2/toybox_feature2.txt')
-    # FEATURE_PATHS.append('src/project_public_2/toybox_feature3.txt')
+    # FEATURE_PATHS.append('src/project_public_2/toybox_feature2.txt')
+    FEATURE_PATHS.append('src/project_public_2/toybox_feature3.txt')
     # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions1.txt')
-    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions2.txt')
-    # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
+    # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions2.txt')
+    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
     # clear log file
     json_helper.clear_json_log('src/project_public_2/toy_box_single_log.json')
 
     result_1 = adaptive_ant_mixican(
-        generations=100,
-        pop_size=20,
+        generations=50,
+        pop_size=15,
         best_size=1,
         verbose=False
     )
 
-    result_2 = adaptive_ant_mixican(
-        generations=100,
-        pop_size=20,
-        best_size=1,
-        verbose=False
-    )
-    
-
-    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_single_log.json')
+    json_helper.extend_json_log(result_1, 'src/project_public_2/toy_box_single_log.json')
+    plt.show()

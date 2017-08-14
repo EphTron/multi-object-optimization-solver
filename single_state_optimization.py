@@ -190,8 +190,7 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
         'generations': generations
     }
     phero_info = [(val, idx) for (idx, val) in pheromones["values"].items() if val > 0.3]
-    print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
-
+    
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         evo_result['best_solutions'].append(sol.as_dict())
@@ -256,36 +255,39 @@ def test_fix_vector(verbose):
 if __name__ == "__main__":
     # busy box
     # Our csp_solver might get stuck for REALLY REALLY long in backtracking steps...
-    # FEATURE_PATHS.append('src/project_public_2/busybox-1.198.0_feature.txt')
-    # INTERACTION_PATHS.append( 'src/project_public_2/busybox-1.198.0_interactions.txt')
+    # We couldn't get this to run for more than a single generation
+    # FEATURE_PATHS = ['src/project_public_2/busybox-1.198.0_feature.txt']
+    # INTERACTION_PATHS = ['src/project_public_2/busybox-1.198.0_interactions.txt']
     # CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
-
-    # toy box
-    # comment in the feature you want to test
-    # FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
-    FEATURE_PATHS.append('src/project_public_2/toybox_feature2.txt')
-    # FEATURE_PATHS.append('src/project_public_2/toybox_feature3.txt')
-    # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions1.txt')
-    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions2.txt')
-    # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
-    CNF_PATH = 'src/project_public_2/toybox.dimacs'
-
-    # clear log file
-    json_helper.clear_json_log('src/project_public_2/toy_box_single_log.json')
-
-    result_1 = adaptive_ant_mixican(
-        generations=100,
-        pop_size=20,
-        best_size=1,
-        verbose=False
-    )
-
-    result_2 = adaptive_ant_mixican(
-        generations=100,
-        pop_size=20,
-        best_size=1,
-        verbose=False
-    )
     
-
-    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_single_log.json')
+    ## toy box
+    # set path to load DIMACS cnf formatted constraint from
+    CNF_PATH = 'src/project_public_2/toybox.dimacs'
+    for i in range(1,4):
+        # reset number of generated candidate solutions
+        # so that assigned id's are meaningful within objective optimization
+        CandidateSolution.number_of_instances = 0
+        
+        # set path to load features values and interactions from
+        FEATURE_PATHS = ['src/project_public_2/toybox_feature'+str(i)+'.txt']
+        INTERACTION_PATHS = ['src/project_public_2/toybox_interactions'+str(i)+'.txt']
+        
+        # set file_name of output log
+        log_name = 'src/project_public_2/toy_box_single_log_'+str(i)+'.json'
+        
+        # clear previously logged content (if exists)
+        json_helper.clear_json_log(log_name)
+        
+        # perform single state optimization
+        result = adaptive_ant_mixican(
+            generations=100,
+            pop_size=20,
+            best_size=1,
+            verbose=False
+        )
+        
+        # log results
+        json_helper.extend_json_log(result, log_name)
+        
+        print("******************************")
+        print("OPTIMIZATION "+str(i)+" DONE\n > output can be analyzed from JSON file.\n > file name:"+log_name)

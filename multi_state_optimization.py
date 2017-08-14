@@ -7,10 +7,11 @@ Created on Jun 21.06.17 14:30
 
 import feature_parser
 import candidate_solution
-from candidate_solution import CandidateSolution
 import csp_solver
-from csp_solver import CSPSolver
 import json_helper
+
+from candidate_solution import CandidateSolution
+from csp_solver import CSPSolver
 
 import random
 import utility
@@ -38,6 +39,8 @@ def sort_population_by_pareto_rank(pop):
     pop.sort(key=lambda x: x.pareto_rank)
     
 def remove_same_by_fitness(candidates):
+    ''' Returns list copied from candidates, where
+        duplicates (comparing by fitness sum) are removed. '''
     b = list(set([c.get_fitness_sum() for c in candidates]))
     temp = []
     for fitness_value in b:
@@ -195,6 +198,8 @@ def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
         else:
             rank_other = [c for c in best_solutions if c.pareto_rank != 0]
             for c in population:
+                # reset sparsity (just for clean logging)
+                c.sparsity = 0
                 if len(best_solutions) >= best_size:
                     break
                 same = False
@@ -248,7 +253,6 @@ def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
         
         gen_counter += 1
     
-
     result = {
         'best_solutions': [],
         'best_size': best_size,

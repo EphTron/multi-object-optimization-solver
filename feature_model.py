@@ -42,6 +42,9 @@
         feature_name = self._cnf["cnf_id_to_f_name"][cnf_id]
         return self._features[feature_name]
 
+    def get_feature_name(self, cnf_id):
+        return self._cnf["cnf_id_to_f_name"][cnf_id]
+
     def set_cnf(self, cnf):
         self._cnf = cnf
 

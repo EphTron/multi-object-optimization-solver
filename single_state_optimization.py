@@ -13,12 +13,6 @@ from csp_solver import CSPSolver
 import json_helper
 
 import random
-import utility
-import copy
-
-# used for plotting
-import numpy
-import matplotlib.pyplot as plt
 
 FEATURE_PATHS = []
 INTERACTION_PATHS = []
@@ -63,7 +57,7 @@ def tweak_based_on_pheromones(candidate, ):
     return candidate
 
 
-def adaptive_ant_evolution(generations=1, pop_size=10, best_size=1, verbose=False):
+def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False):
     CandidateSolution.model = feature_parser.parse(
         feature_paths=FEATURE_PATHS,
         interaction_paths=INTERACTION_PATHS,
@@ -169,16 +163,16 @@ def adaptive_ant_evolution(generations=1, pop_size=10, best_size=1, verbose=Fals
             # increase chance to ignore pheromones
             if pheromones["rand_p"] < (6 / float(feature_count)):
                 pheromones["rand_p"] += 1 / float(feature_count)
-            elif best_changed > 20:
-                if pheromones["rand_p"] < 0.5:
-                    pheromones["rand_p"] += 2 / float(feature_count)
+            elif best_changed > 10:
+                if pheromones["rand_p"] < 0.1:
+                    pheromones["rand_p"] += 3 / float(feature_count)
         else:
             pheromones["rand_p"] = 0
 
         print("SAME FITNESS VALUES: ", same_fitness_count)
         print("ADAPTION RATE: ", adaptive_evapo_rate)
         print("BEST DIDN'T CHANGE SINCE: ", best_changed)
-        print("RANDOM P", pheromones["rand_p"])
+        print("BREAK OUT PROBABILITY", pheromones["rand_p"])
 
         # sort by best
         sort_population_by_fitness(population)
@@ -201,11 +195,12 @@ def adaptive_ant_evolution(generations=1, pop_size=10, best_size=1, verbose=Fals
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         evo_result['best_solutions'].append(sol.as_dict())
+    print("See log file for ")
 
     return evo_result
 
 
-def test_csp_solver(file_name, verbose):
+def test_csp_solver(verbose):
     CandidateSolution.model = feature_parser.parse(
         feature_paths=FEATURE_PATHS,
         interaction_paths=INTERACTION_PATHS,
@@ -266,20 +261,31 @@ if __name__ == "__main__":
     # CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
 
     # toy box
-    FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
+    # comment in the feature you want to test
+    # FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
     FEATURE_PATHS.append('src/project_public_2/toybox_feature2.txt')
-    FEATURE_PATHS.append('src/project_public_2/toybox_feature3.txt')
-    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions1.txt')
+    # FEATURE_PATHS.append('src/project_public_2/toybox_feature3.txt')
+    # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions1.txt')
     INTERACTION_PATHS.append('src/project_public_2/toybox_interactions2.txt')
-    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
+    # INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
-    result = adaptive_ant_evolution(
+    # clear log file
+    json_helper.clear_json_log('src/project_public_2/toy_box_single_log.json')
+
+    result_1 = adaptive_ant_mixican(
         generations=100,
         pop_size=20,
         best_size=1,
         verbose=False
     )
 
-    json_helper.clear_json_log('src/project_public_2/toy_box_pheromones.json')
-    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_pheromones.json')
+    result_2 = adaptive_ant_mixican(
+        generations=100,
+        pop_size=20,
+        best_size=1,
+        verbose=False
+    )
+    
+
+    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_single_log.json')

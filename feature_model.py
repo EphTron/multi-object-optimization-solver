@@ -3,6 +3,9 @@
         self._features = {}
         self._interaction_sets = []
         self._cnf = {}
+
+    def get_num_objectives(self):
+        return self.get_num_interaction_sets()
     
     def add_interaction_set(self, interactions):
         ''' Appends a set of interactions to list of interaction sets. '''

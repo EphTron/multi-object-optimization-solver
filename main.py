@@ -292,8 +292,8 @@ if __name__ == "__main__":
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
     result = simple_evolution_template(
-        generations=30,
-        pop_size=25,
+        generations=100,
+        pop_size=15,
         selection_size=5,
         best_size=1,
         verbose=False

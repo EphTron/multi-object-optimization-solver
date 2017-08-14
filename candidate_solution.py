@@ -104,6 +104,7 @@ class CandidateSolution:
         self._feature_list = [f for f in self._features.values() if f is not None]
         self._fitness_values = []
         self.pareto_rank = None
+        self.sparsity = 0
         if CandidateSolution.model != None:
             self.calc_fitness()
 
@@ -126,6 +127,9 @@ class CandidateSolution:
         ''' Returns a list of all objective fitness values
             for this candidate. '''
         return [v for v in self._fitness_values]
+    
+    def get_fitness_sum(self):
+        return sum(self.get_fitness_values())
 
     def is_valid(self):
         ''' checks constraints in feature list.

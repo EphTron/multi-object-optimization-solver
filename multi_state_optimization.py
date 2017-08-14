@@ -20,7 +20,8 @@ import copy
 import numpy
 import matplotlib.pyplot as plt
 
-EPSILON = 0.0000000001
+EPSILON  =  0.0000000001
+INFINITY = 9999999999
 FEATURE_PATHS = []
 INTERACTION_PATHS = []
 XML_MODEL_PATH = ""
@@ -42,6 +43,51 @@ def sort_population_by_pareto_rank(pop):
 
 def most_common(lst):
     return max(set(lst), key=lst.count)
+
+def remove_same_by_fitness(candidates):
+    b = list(set([c.get_fitness_sum() for c in candidates]))
+    temp = []
+    for fitness_value in b:
+        for c in candidates:
+            c_val = c.get_fitness_sum()
+            if abs(c_val-fitness_value) < EPSILON:
+                temp.append(c)
+                break
+    return temp
+        
+    '''
+    temp = [c for c in candidates]
+    for c in candidates:
+        kill_candidates = []
+        for other_c in temp:
+            if other_c == c:
+                continue
+            c_val = sum(c.get_fitness_values())
+            other_c_val = sum(other_c.get_fitness_values())
+            if abs(c_val-other_c_val) < EPSILON:
+                kill_candidates.append(other_c)
+        while len(kill_candidates) > 0:
+            temp.remove(kill_candidates[-1])
+            kill_candidates.pop()
+    return temp
+    '''
+
+def calc_sparsity(candidates):
+    ''' Calculates sparsity for all candidates. 
+        Note all elements should be of same pareto rank. '''
+    for c in candidates:
+        c.sparsity = 0
+    sorted_candidates = [c for c in candidates]
+    for i in range(0, CandidateSolution.model.get_num_objectives()):
+        sorted_candidates.sort(key=lambda x: x.get_fitness(i), reverse=False)
+        sorted_candidates[0].sparsity = INFINITY 
+        sorted_candidates[-1].sparsity = INFINITY
+        v_range = sorted_candidates[-1].get_fitness(i) - sorted_candidates[0].get_fitness(i)
+        for j in range(1, len(sorted_candidates)-1):
+            current = sorted_candidates[j]
+            prev = sorted_candidates[j-1].get_fitness(i)
+            next = sorted_candidates[j+1].get_fitness(i)
+            current.sparsity += (next - prev) / float(v_range)
 
 def calc_pareto_front(candidates):
     ''' given a list of CandidateSolution this function 
@@ -99,7 +145,6 @@ def tweak(candidate):
 
 def tweak_based_on_pheromones(candidate, ):
     return candidate
-
 
 def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best_size=1, verbose=False):
     CandidateSolution.model = feature_parser.parse(
@@ -175,18 +220,29 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         '''
         # append to best solutions from pareto ranked
         best_solutions = []
-        for c in population:
-            if c.pareto_rank > 0 and len(best_solutions) >= best_size:
-                break
-            same = False
-            for bc in best_solutions:
-                c_val = sum(c.get_fitness_values())
-                bc_val = sum(bc.get_fitness_values())
-                if abs(c_val-bc_val) < EPSILON:
-                    same = True
+        rank_0 = [c for c in population if c.pareto_rank == 0]
+        print(len(rank_0))
+        rank_0 = remove_same_by_fitness(rank_0)
+        print(len(rank_0))
+        if len(rank_0) >= best_size:
+            print("NOW LOOK AT DIS SPARSITY")
+            calc_sparsity(rank_0)
+            rank_0.sort(key=lambda x: x.sparsity, reverse=True)
+            best_solutions = rank_0[:best_size]
+        else:
+            rank_other = [c for c in best_solutions if c.pareto_rank != 0]
+            for c in population:
+                if len(best_solutions) >= best_size:
                     break
-            if not same:
-                best_solutions.append(c)
+                same = False
+                for bc in best_solutions:
+                    c_val = sum(c.get_fitness_values())
+                    bc_val = sum(bc.get_fitness_values())
+                    if abs(c_val-bc_val) < EPSILON:
+                        same = True
+                        break
+                if not same:
+                    best_solutions.append(c)
         
         # TODO: handle this
         if len(best_solutions) < best_size:
@@ -235,7 +291,10 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         # print("Occurrences", pheromones["occu_counter"])
         
         for sol in best_solutions:
-            print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()) + " pareto_rank:" + str(sol.pareto_rank))
+            print("id:" + str(sol.get_id()) + \
+                  " fitness_values:" + str(sol.get_fitness_values()) + \
+                  " pareto_rank:" + str(sol.pareto_rank) + \
+                  " sparsity:" + str(sol.sparsity))
     
 
     result = {
@@ -325,10 +384,10 @@ if __name__ == "__main__":
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
     result = simple_evolution_template(
-        generations=200,
+        generations=100,
         pop_size=20,
         selection_size=5,
-        best_size=5,
+        best_size=8,
         verbose=False
     )
     

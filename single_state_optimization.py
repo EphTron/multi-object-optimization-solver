@@ -154,8 +154,7 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
             if adaptive_evapo_rate > 1:
                 adaptive_evapo_rate -= 1
         elif same_fitness_count / pop_size < 0.2:
-            if adaptive_evapo_rate < 40:
-                adaptive_evapo_rate += 1
+            adaptive_evapo_rate += 1
 
         # average the pheromones to decrease impact of occurrences
         for idx in pheromones["values"]:
@@ -168,11 +167,6 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
             # increase chance to ignore pheromones
             if pheromones["rand_p"] < (6 / float(feature_count)):
                 pheromones["rand_p"] += 1 / float(feature_count)
-
-            elif best_changed > 10:
-                if pheromones["rand_p"] < 0.1:
-                    pass
-                    # pheromones["rand_p"] += 3 / float(feature_count)
         else:
             pheromones["rand_p"] = 0
 
@@ -208,7 +202,7 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
         print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         evo_result['best_solutions'].append(sol.as_dict())
 
-    # plot infos of our generations
+    # plot of our generation info
     plot_bar_chart_of_generation(generation_info)
 
     print("See log file for feature vector")

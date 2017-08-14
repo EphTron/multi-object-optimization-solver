@@ -95,99 +95,6 @@ def brute_force(file_name, verbose):
     return best
 
 
-def naive_evolution(file_name, verbose, generations=50, population_size=10):
-    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        file_name,
-        feature_path=FEATURE_PATH,
-        interaction_path=INTERACTION_PATH,
-        model_path=MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    if CandidateSolution.cnf != None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
-
-    P = [candidate_solution.generate_random(features) for i in range(0, population_size)]
-    best = None
-    best_gen = 0
-
-    fig = plt.figure()
-    ax = plt.subplot(111)
-    for gen_idx in range(0, generations):
-        utility.plot_generation_boxplot(ax, P, gen_idx)
-        for p in P:
-            if best is None or p.get_fitness() > best.get_fitness():
-                best = p
-                best_gen = gen_idx
-        Q = []
-        i = 0
-
-        while i < len(P) - 1:
-            p1 = P[i]
-            p2 = P[i + 1]
-            c1, c2 = candidate_solution.arbitrary_crossover(p1, p2)
-            Q.append(c1)
-            Q.append(c2)
-            i = i + 2
-        P = [q for q in Q]
-        if verbose:
-            print("===== GENERATION ", gen_idx, " =====")
-            print("BEST: ", best)
-            print(" > fitness", best.get_fitness())
-
-    return best, best_gen
-
-
-def partially_random_evolution(file_name, verbose, generations=50, population_size=10):
-    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        file_name,
-        feature_path=FEATURE_PATH,
-        interaction_path=INTERACTION_PATH,
-        model_path=MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    if CandidateSolution.cnf != None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
-
-    for i in range(0, 100):
-        print("============== DEINE MUTTER =============")
-        print(csp_solver.GLOBAL_INSTANCE.generate_feature_vector())
-        print("============== ENDE =============")
-    return
-    P = [candidate_solution.generate_random(features) for i in range(0, population_size)]
-    best = None
-    best_gen = 0
-
-    fig = plt.figure()
-    ax = plt.subplot(111)
-    for gen_idx in range(0, generations):
-        utility.plot_generation_boxplot(ax, P, gen_idx)
-        for p in P:
-            if best is None or p.get_fitness() > best.get_fitness():
-                best = p
-                best_gen = gen_idx
-        Q = []
-        i = 0
-        while i < len(P) / 2 - 1:
-            p1 = P[i]
-            p2 = P[i + 1]
-            c1, c2 = candidate_solution.arbitrary_crossover(p1, p2)
-            Q.append(c1)
-            Q.append(c2)
-            i = i + 2
-        P = [q for q in Q]
-        while len(P) < population_size - 1:
-            P.append(candidate_solution.generate_random(features))
-        random.shuffle(P)
-        if verbose:
-            print("===== GENERATION ", gen_idx, " =====")
-            print("BEST: ", best)
-            print(" > fitness", best.get_fitness())
-
-    return best, best_gen
-
-
 def meets_all_constraints(feature_vector):
     if csp_solver.GLOBAL_INSTANCE != None:
         for clause in csp_solver.GLOBAL_INSTANCE.constraints['clauses']:
@@ -208,8 +115,9 @@ def breed(solutions_for_breeding, pop_size):
     while len(new_population) <= pop_size:
         for solution in solutions_for_breeding:
             if len(new_population) <= pop_size:
-                #copied_solution = copy.deepcopy(solution)
-                tweaked_solution = CandidateSolution(csp_solver.GLOBAL_INSTANCE.generate_feature_vector())#tweak(copied_solution)
+                # copied_solution = copy.deepcopy(solution)
+                tweaked_solution = CandidateSolution(
+                    csp_solver.GLOBAL_INSTANCE.generate_feature_vector())  # tweak(copied_solution)
                 new_population.append(tweaked_solution)
     return new_population
 
@@ -240,13 +148,16 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
     best_solutions = []
 
     # init random pheromone trails
-    evapo_rate = 0.1
-    learn_rate = 0.5
-    base_value = 0.0
-    pheromones = {"values": {}, "rand_p": 1.0}
+    evapo_rate = 0.1  # 0.1
+    learn_rate = 0.5  # 0.5
+    pheromones = {"values": {}, "rand_p": 1.0, "occu_counter": {}}
     for idx, f in CandidateSolution.features.items():
         if f.cnf_id != None:
-            pheromones["values"][f.cnf_id] = 1/candidate_solution.get_feature_cost(f.cnf_id)
+            pheromones["values"][f.cnf_id] = 1 / candidate_solution.get_feature_cost(f.cnf_id)
+
+            # occurrences counter
+            # pheromones["occu_counter"][f.cnf_id] = 0
+
     csp_solver.GLOBAL_INSTANCE.pheromones = pheromones
 
     # init random population
@@ -261,9 +172,19 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
 
     gen_counter = 0
     while gen_counter < generations:
-        pheromones["rand_p"] = max(min(1-(gen_counter/float(generations)), 0.8), 0.1)
-        print("========== NEW GENERATION STARTED "+str(gen_counter)+str(" =========="))
+        pheromones["rand_p"] = max(min(1 - (gen_counter / float(generations)), 0.8), 0.1)
+        print("========== NEW GENERATION STARTED " + str(gen_counter) + str(" =========="))
         fitness_sum = 0.0
+
+        # evapo pheromones (decrease them a bit)
+        for idx in pheromones["values"]:
+            val = pheromones["values"][idx]
+            cost = (1 / candidate_solution.get_feature_cost(idx))
+            pheromones["values"][idx] = (1 - evapo_rate) * val + evapo_rate * cost
+
+            # pheromones["occu_counter"][f.cnf_id] = 0
+            # pheromones["values"][idx] = (1 - evapo_rate) * val + evapo_rate * cost # base_value
+
         # assess fitness and create pheromone trail        
         for candidate in population:
             # print(len(population))
@@ -272,7 +193,13 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
             for idx, is_set in candidate.get_features().items():
                 if is_set:
-                    pheromones["values"][idx] += 1/candidate_solution.get_feature_cost(idx)+1/fitness
+                    pheromones["values"][idx] += 1 / candidate_solution.get_feature_cost(idx) + 1 / fitness
+
+                    # other pheromone settings approach
+                    # pheromones["occu_counter"][f.cnf_id] += 1
+                    # desirability = 1 / candidate_solution.get_feature_cost(idx) + 1 / fitness
+                    # pheromones["values"][idx] = (1 - learn_rate) * val + learn_rate * desirability
+
             if len(best_solutions) < best_size:
                 best_solutions.append(candidate)
             else:
@@ -280,21 +207,24 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
                     print("BEST CHANGED\n > new fitness", fitness)
                     best_solutions[-1] = candidate
                     sort_population_by_fitness(best_solutions)
-        print(" > fitness sum:"+str(fitness_sum)+"\n > fitness average:"+str(fitness_sum/pop_size))
-        print(" > best:"+str(best_solutions[0].get_fitness()))
-        # evaporate pheromones (decrease them a bit)
-        for idx in pheromones["values"]:
-            val = pheromones["values"][idx]
-            pheromones["values"][idx] = (1-evapo_rate) * val + evapo_rate * base_value
+        print(" > fitness sum:" + str(fitness_sum) + "\n > fitness average:" + str(fitness_sum / pop_size))
+        print(" > best:" + str(best_solutions[0].get_fitness()))
 
         for candidate in best_solutions:
             for idx, is_set in candidate.get_features().items():
                 if is_set:
-                    #val = pheromones["values"][idx]
-                    #print idx, pheromones["values"][idx]
-                    pass#fitness = 
-                    #pheromones["values"][idx] += 0.5 * (1 / candidate.get_fitness())
-                    #pheromones["values"][idx] = (1 - learn_rate) * val + learn_rate * fitness
+                    # val = pheromones["values"][idx]
+                    # print idx, pheromones["values"][idx]
+                    # fitness =
+                    # pheromones["values"][idx] += 0.5 * (1 / candidate.get_fitness())
+                    # pheromones["values"][idx] += learn_rate * (1 / candidate.get_fitness())
+                    # pheromones["occu_counter"][idx] += 1
+                    pass
+
+        # average the pheromones to decrease impact of occurrences
+        # for idx in pheromones["values"]:
+        #    val = pheromones["values"][idx]
+        #    pheromones["values"][idx] = val / max(pheromones["occu_counter"][idx], 1)
 
         # sort by best
         sort_population_by_fitness(population)
@@ -306,7 +236,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         population = breed(breeding_q, pop_size)
 
         gen_counter += 1
-        # print(pheromones["values"])
+        print(pheromones["values"])
 
     result = {
         'best': {'id': best_solutions[0].get_id(), 'fitness': best_solutions[0].get_fitness()},
@@ -315,11 +245,11 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         'generations': generations,
         'selection_size': selection_size
     }
-    
+
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
         result['best_solutions'].append(sol.as_dict())
-    
+
     return result
 
 
@@ -377,12 +307,12 @@ def test_fix_vector(file_name, verbose):
 
 
 if __name__ == "__main__":
-    FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
-    INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
+    FEATURE_PATH = 'src/project_public_2/toybox_feature3.txt'
+    INTERACTION_PATH = 'src/project_public_2/toybox_interactions3.txt'
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
     result = simple_evolution_template(
         generations=20,
-        pop_size=20, 
+        pop_size=25,
         selection_size=5,
         best_size=1
     )

@@ -107,6 +107,10 @@ def sort_population_by_fitness(pop):
     pop.sort(key=lambda x: x.get_fitness(), reverse=False)
 
 
+def most_common(lst):
+    return max(set(lst), key=lst.count)
+
+
 def breed(solutions_for_breeding, pop_size):
     # create new empty pop
     new_population = []
@@ -148,9 +152,10 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
     best_solutions = []
 
     # init random pheromone trails
+    adaptive_evapo_rate = 1
     evapo_rate = 0.3  # 0.1
     learn_rate = 0.5  # 0.5
-    pheromones = {"values": {}, "rand_p": 1.0, "occu_counter": {}}
+    pheromones = {"values": {}, "rand_p": 0.0, "occu_counter": {}}
     for idx, f in CandidateSolution.features.items():
         if f.cnf_id != None:
             pheromones["values"][f.cnf_id] = 1 / candidate_solution.get_feature_cost(f.cnf_id)
@@ -171,8 +176,9 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             print("Created candidate " + str(candidate.get_id()))
 
     gen_counter = 0
+    best_changed = 0
     while gen_counter < generations:
-        pheromones["rand_p"] = max(min(1 - (gen_counter / float(generations)), 0.8), 0.1)
+        # pheromones["rand_p"] = max(min(1 - (gen_counter / float(generations)), 0.8), 0.1)
         print("========== NEW GENERATION STARTED " + str(gen_counter) + str(" =========="))
         fitness_sum = 0.0
 
@@ -184,29 +190,34 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             pheromones["occu_counter"][idx] = 0
             # pheromones["values"][idx] = (1 - evapo_rate) * val + evapo_rate * cost # base_value
 
-        # assess fitness and create pheromone trail        
+        # assess fitness and create pheromone trail
+        fitness_values = []
         for candidate in population:
             # print(len(population))
             fitness = candidate.get_fitness()
+            fitness_values.append(fitness)
             fitness_sum += fitness
             print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
             for idx, is_set in candidate.get_features().items():
                 if is_set:
-                    
-                    pheromones["values"][idx] += (1 / pop_size) * \
-                                                 (1 / candidate_solution.get_feature_cost(idx) + 1 / fitness)
+                    phero_val = pheromones["values"][idx]
+                    # new_value = phero_val + (1 / pop_size) * (1 / candidate_solution.get_feature_cost(idx) + 1 / fitness)
+                    new_value = phero_val + (1 / candidate_solution.get_feature_cost(idx) + 1 / fitness)
+                    # new_value = (1 / candidate_solution.get_feature_cost(idx) + 1 / fitness)
 
                     # other pheromone settings approach
-                    pheromones["occu_counter"][idx] += 1
-                    # desirability = 1 / candidate_solution.get_feature_cost(idx) + 1 / fitness
-                    # phero_val = pheromones["values"][idx]
+                    desirability = 1 / candidate_solution.get_feature_cost(idx) + 1 / fitness
+                    new_value2 = phero_val + (learn_rate * desirability)
+                    # new_value2 = phero_val + (1 / pop_size) * (learn_rate * desirability)
                     # pheromones["values"][idx] = (1 - learn_rate) * phero_val + learn_rate * desirability
-                    # pheromones["values"][idx] += (1 - learn_rate) * val + learn_rate * desirability
+                    pheromones["occu_counter"][idx] += 1
+                    pheromones["values"][idx] = new_value
 
             if len(best_solutions) < best_size:
                 best_solutions.append(candidate)
             else:
                 if best_solutions[-1].get_fitness() > fitness:
+                    best_changed = 0
                     print("BEST CHANGED\n > new fitness", fitness)
                     best_solutions[-1] = candidate
                     sort_population_by_fitness(best_solutions)
@@ -219,15 +230,35 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
                     # pheromones["values"][idx] += 0.5 * (1 / candidate.get_fitness())
                     # phero_val = pheromones["values"][idx]
                     # pheromones["values"][idx] += learn_rate * (1 / candidate.get_fitness())
-                    pheromones["values"][idx] += 10 + 10 * pop_size * (1 / candidate.get_fitness())
+                    pheromones["values"][idx] += 20 + 10 * pop_size * (1 / candidate.get_fitness())
                     # pheromones["values"][idx] = (1 - learn_rate) * phero_val + learn_rate * (1 / candidate.get_fitness())
                     # pheromones["occu_counter"][idx] += 1
+
+        # adapt evaporation to change rate
+        same_fitness_count = fitness_values.count(most_common(fitness_values))
+        if same_fitness_count / pop_size > 0.6:
+            if adaptive_evapo_rate > 1:
+                adaptive_evapo_rate -= 1
+        elif same_fitness_count / pop_size < 0.2:
+            adaptive_evapo_rate += 1
+
+        # if best didnt change add chance to do random changes
+        if best_changed > 0:
+            if pheromones["rand_p"] < (4 / len(CandidateSolution.features)):
+                pheromones["rand_p"] += 1 / len(CandidateSolution.features)
+        else:
+            pheromones["rand_p"] = 0
+
+        print("SAME", same_fitness_count, "SAME BEST SINCE", best_changed)
+        print("RATE ", adaptive_evapo_rate, "RANDOM P", pheromones["rand_p"])
 
         # average the pheromones to decrease impact of occurrences
         for idx in pheromones["values"]:
             val = pheromones["values"][idx]
             # print(" - - - - - - - - ", max(pheromones["occu_counter"][idx], 1))
-            pheromones["values"][idx] = val / (max(pheromones["occu_counter"][idx], 1))
+
+            # pheromones["values"][idx] = val / (max(pheromones["occu_counter"][idx], 100))
+            pheromones["values"][idx] = val / (max(pheromones["occu_counter"][idx], adaptive_evapo_rate))
 
         # sort by best
         sort_population_by_fitness(population)
@@ -239,6 +270,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         population = breed(breeding_q, pop_size)
 
         gen_counter += 1
+        best_changed += 1
         # print("Pheromones", pheromones["values"])
         # print("Occurrences", pheromones["occu_counter"])
 
@@ -250,7 +282,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         'selection_size': selection_size
     }
     phero_info = [(val, idx) for (idx, val) in pheromones["values"].items() if val > 0.3]
-    print("Pheromones", phero_info, "max", max([x[0] for x in phero_info]))
+    print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
 
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
@@ -313,11 +345,15 @@ def test_fix_vector(file_name, verbose):
 
 
 if __name__ == "__main__":
-    FEATURE_PATH = 'src/project_public_2/toybox_feature3.txt'
-    INTERACTION_PATH = 'src/project_public_2/toybox_interactions3.txt'
-    CNF_PATH = 'src/project_public_2/toybox.dimacs'
+    FEATURE_PATH = 'src/project_public_2/busybox-1.198.0_feature.txt'
+    INTERACTION_PATH = 'src/project_public_2/busybox-1.198.0_interactions.txt'
+    CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
+    # test_csp_solver('src/project_public_1/busybox', verbose=True)
+    # FEATURE_PATH = 'src/project_public_2/toybox_feature3.txt'
+    # INTERACTION_PATH = 'src/project_public_2/toybox_interactions3.txt'
+    # CNF_PATH = 'src/project_public_2/toybox.dimacs'
     result = simple_evolution_template(
-        generations=40,
+        generations=30,
         pop_size=25,
         selection_size=5,
         best_size=1

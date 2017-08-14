@@ -34,16 +34,9 @@ def meets_all_constraints(feature_vector):
                 return False
     return True
 
-
-def sort_population_by_fitness(pop):
-    pop.sort(key=lambda x: x.get_fitness(0), reverse=False)
-
 def sort_population_by_pareto_rank(pop):
     pop.sort(key=lambda x: x.pareto_rank)
-
-def most_common(lst):
-    return max(set(lst), key=lst.count)
-
+    
 def remove_same_by_fitness(candidates):
     b = list(set([c.get_fitness_sum() for c in candidates]))
     temp = []
@@ -107,28 +100,28 @@ def calc_pareto_ranks(candidates, i=0):
     
     calc_pareto_ranks([c for c in candidates if c not in front], i+1)
 
-def breed(solutions_for_breeding, pop_size):
+def generate_new_population(pop_size, check_constraints=False):
+    ''' Creates list of CandidateSolutions with length equal to pop_size. 
+        if check_constraints is set True given CSP constraints will be checked 
+        on each feature vector generated before creating a CandidateSolution from it.
+        This is genereally not necessary, as our CSP solver ensure constraints are met
+        while generating feature vectors. Thus, it will not return invalid vectors.
+        Flipping the check_constraints flag can be used to validate this. '''
     # create new empty pop
     new_population = []
 
     # create children until wanted pop size is reached
     while len(new_population) <= pop_size:
-        for solution in solutions_for_breeding:
-            if len(new_population) <= pop_size:
-                # csp solver uses pheromones for vector generation
-                tweaked_solution = CandidateSolution(
-                    csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
-                )
-                new_population.append(tweaked_solution)
+        # csp solver uses pheromones for vector generation
+        vec = csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
+        if not check_constraints or meets_all_constraints(vec):
+            new_population.append(CandidateSolution(vec))
+        else:
+            print "INVALID SOLUTION"
+            
     return new_population
-
-def tweak(candidate):
-    return candidate
-
-def tweak_based_on_pheromones(candidate, ):
-    return candidate
-
-def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best_size=1, verbose=False):
+    
+def multi_state_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
     CandidateSolution.model = feature_parser.parse(
         feature_paths=FEATURE_PATHS,
         interaction_paths=INTERACTION_PATHS,
@@ -243,33 +236,30 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
                 if is_set:
                     pheromones["values"][idx] += 20 + 10 * pop_size * 1/sum(mapped_fitness_vals)
         
-        # select best solutions for breeding
-        breeding_q = population[:selection_size]
+        # generate a new population from pheromones
+        population = generate_new_population(pop_size)
 
-        # breeding: first copy, then tweak or crossover to generate a new population
-        population = breed(breeding_q, pop_size)
-
-        gen_counter += 1
-        
+        # log current generation
         for sol in best_solutions:
             print("id:" + str(sol.get_id()) + \
                   " fitness_values:" + str(sol.get_fitness_values()) + \
                   " pareto_rank:" + str(sol.pareto_rank) + \
                   " sparsity:" + str(sol.sparsity))
+        
+        gen_counter += 1
     
 
     result = {
-        'best': {'id': best_solutions[0].get_id(), 'fitness_values': best_solutions[0].get_fitness_values()},
         'best_solutions': [],
+        'best_size': best_size,
         'population_size': pop_size,
-        'generations': generations,
-        'selection_size': selection_size
+        'generations': generations
     }
+    
     phero_info = [(val, idx) for (idx, val) in pheromones["values"].items() if val > 0.3]
     print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
 
     for sol in best_solutions:
-    #    print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         result['best_solutions'].append(sol.as_dict())
 
     return result
@@ -284,10 +274,9 @@ if __name__ == "__main__":
     INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
-    result = simple_evolution_template(
+    result = multi_state_burrito_acs(
         generations=100,
         pop_size=10,
-        selection_size=5,
         best_size=8,
         verbose=False
     )

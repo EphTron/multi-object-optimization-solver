@@ -34,15 +34,15 @@ def generate_random(feature_dict={}, ensure_valid=True):
     return candidate
 
 
-def assess_fitness(candidate):
+def assess_fitness(candidate, objective_idx):
     features = candidate.get_features()
     feature_fitness = 0
     for feature_id, is_set in features.items():
         if is_set:
             feature = CandidateSolution.model.get_feature_by_id(feature_id)
-            feature_fitness += feature.get_value(0)
+            feature_fitness += feature.get_value(objective_idx)
     
-    interactions = CandidateSolution.model.get_interaction_set(0)
+    interactions = CandidateSolution.model.get_interaction_set(objective_idx)
     interaction_fitness = 0
     if interactions != None:
         for i in interactions:
@@ -101,7 +101,8 @@ class CandidateSolution:
 
         self._features = features
         self._feature_list = [f for f in self._features.values() if f is not None]
-        self._fitness = None
+        self._fitness_values = []
+        self.pareto_rank = None
         if CandidateSolution.model != None:
             self.calc_fitness()
 
@@ -109,10 +110,21 @@ class CandidateSolution:
         return self._id
 
     def calc_fitness(self):
-        self._fitness = assess_fitness(self)
+        self._fitness_values = []
+        for i in range(0, CandidateSolution.model.get_num_objectives()):
+            self._fitness_values.append(assess_fitness(self, i))
 
-    def get_fitness(self):
-        return self._fitness
+    def get_fitness(self, objective_idx):
+        ''' Returns the candidate solutions fitness 
+            for objective referenced by objective_idx. '''
+        if objective_idx >= len(self._fitness_values):
+            raise ValueError("Failure: Exceedes value range for objectives.")
+        return self._fitness_values[objective_idx]
+
+    def get_fitness_values(self):
+        ''' Returns a list of all objective fitness values
+            for this candidate. '''
+        return [v for v in self._fitness_values]
 
     def is_valid(self):
         ''' checks constraints in feature list.
@@ -156,6 +168,6 @@ class CandidateSolution:
             Used for generating JSON output. '''
         return {
             'id':self._id,
-            'fitness':self.get_fitness(),
+            'fitness_values':self.get_fitness_values(),
             'features':self.get_features()
         }

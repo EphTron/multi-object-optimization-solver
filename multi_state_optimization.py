@@ -34,7 +34,7 @@ def meets_all_constraints(feature_vector):
 
 
 def sort_population_by_fitness(pop):
-    pop.sort(key=lambda x: x.get_fitness(), reverse=False)
+    pop.sort(key=lambda x: x.get_fitness(0), reverse=False)
 
 
 def most_common(lst):
@@ -125,7 +125,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         fitness_values = []
         for candidate in population:
             # print(len(population))
-            fitness = candidate.get_fitness()
+            fitness = candidate.get_fitness(0)
             fitness_values.append(fitness)
             fitness_sum += fitness
             print("Candidate id " + str(candidate.get_id()) + " has fitness: " + str(fitness))
@@ -147,22 +147,22 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
             if len(best_solutions) < best_size:
                 best_solutions.append(candidate)
             else:
-                if best_solutions[-1].get_fitness() > fitness:
+                if best_solutions[-1].get_fitness(0) > fitness:
                     best_changed = 0
                     print("BEST CHANGED\n > new fitness", fitness)
                     best_solutions[-1] = candidate
                     sort_population_by_fitness(best_solutions)
-        print(" > fitness sum:" + str(fitness_sum) + "\n > fitness average:" + str(fitness_sum / pop_size))
-        print(" > best:" + str(best_solutions[0].get_fitness()))
+        print(" > fitness average:" + str(fitness_sum / pop_size))
+        print(" > best:" + str(best_solutions[0].get_fitness(0)))
 
         for candidate in best_solutions:
             for idx, is_set in candidate.get_features().items():
                 if is_set:
-                    # pheromones["values"][idx] += 0.5 * (1 / candidate.get_fitness())
+                    # pheromones["values"][idx] += 0.5 * (1 / candidate.get_fitness(0))
                     # phero_val = pheromones["values"][idx]
-                    # pheromones["values"][idx] += learn_rate * (1 / candidate.get_fitness())
-                    pheromones["values"][idx] += 20 + 10 * pop_size * (1 / candidate.get_fitness())
-                    # pheromones["values"][idx] = (1 - learn_rate) * phero_val + learn_rate * (1 / candidate.get_fitness())
+                    # pheromones["values"][idx] += learn_rate * (1 / candidate.get_fitness(0))
+                    pheromones["values"][idx] += 20 + 10 * pop_size * (1 / candidate.get_fitness(0))
+                    # pheromones["values"][idx] = (1 - learn_rate) * phero_val + learn_rate * (1 / candidate.get_fitness(0))
                     # pheromones["occu_counter"][idx] += 1
 
         # adapt evaporation to change rate
@@ -175,8 +175,8 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
 
         # if best didnt change add chance to do random changes
         if best_changed > 0:
-            if pheromones["rand_p"] < (4 / feature_count):
-                pheromones["rand_p"] += 1 / feature_count
+            if pheromones["rand_p"] < (4 / float(feature_count)):
+                pheromones["rand_p"] += 1 / float(feature_count)
         else:
             pheromones["rand_p"] = 0
 
@@ -206,7 +206,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
         # print("Occurrences", pheromones["occu_counter"])
 
     result = {
-        'best': {'id': best_solutions[0].get_id(), 'fitness': best_solutions[0].get_fitness()},
+        'best': {'id': best_solutions[0].get_id(), 'fitness_values': best_solutions[0].get_fitness_values()},
         'best_solutions': [],
         'population_size': pop_size,
         'generations': generations,
@@ -216,7 +216,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
     print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
 
     for sol in best_solutions:
-        print("id:" + str(sol.get_id()) + " fitness:" + str(sol.get_fitness()))
+        print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         result['best_solutions'].append(sol.as_dict())
 
     return result

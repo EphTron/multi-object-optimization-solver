@@ -2,47 +2,97 @@
 from feature import Feature
 from constraint_clause import ConstraintClause
 from feature_interaction import FeatureInteraction
+from feature_model import FeatureModel
 import os.path
 
 
-def parse(path_prefix, feature_path="", interaction_path="", model_path="", cnf_path="", verbose=False):
-    fp = FeatureParser(path_prefix, feature_path, interaction_path, model_path, cnf_path)
-    features, interactions, cnf = fp.parse()
+def parse(feature_paths, interaction_paths, xml_model_path="", cnf_path="", verbose=False):
+    if len(feature_paths) < 1:
+        raise ValueError("Failure: parse(...): Didn't provide at least one filepath to a feature description.")
+    elif len(interaction_paths) < 1:
+        raise ValueError("Failure: parse(...): Didn't provide provide at least one filepath to a feature interaction description.")
+    
+    fp = FeatureParser()
+    
+    # create initial model
+    # adding base features and constraints
+    model = FeatureModel()
+    model.set_features(fp.parse_features(feature_paths[0], xml_model_path))
+    model.set_cnf(fp.parse_cnf(cnf_path, model.get_features()))
+    
+    # add all interactions
+    for path in interaction_paths:
+        model.add_interaction_set(fp.parse_interactions(path))
+    
+    # add additional feature values if any
+    if len(feature_paths) > 1:
+        for i in range(1,len(feature_paths)):
+            fp.extend_feature_values(model.get_features(), feature_paths[i])
+            
     if verbose:
         print('#############FEATURES##############')
-        for key in features:
-            print(features[key])
-        print('#############INTERACTIONS##############')
-        for i in interactions:
-            print(i)
+        features = model.get_features()
+        for name in features:
+            print(features[name])
+        for i in range(0, model.get_num_interaction_sets()):
+            print('#############INTERACTIONS '+str(i)+'##############')
+            for interaction in model.get_interaction_set(i):
+                print(interaction)
         print('#############CNF CLAUSES#############')
+        cnf = model.get_cnf()
         print(' > p_line:', cnf['p_line'])
         print(' > clauses:')
         for c in cnf['clauses']:
             print(c)
-        print(' > cnf_id_to_f_name:')
-        for id, name in cnf['cnf_id_to_f_name'].items():
-            print(id, name)
-    return features, interactions, cnf
-
+    return model
 
 class FeatureParser(object):
-    def __init__(self, path_prefix, feature_path="", interaction_path="", model_path="", cnf_path=""):
-        self.path_prefix = path_prefix
-        self.feature_path = feature_path
-        if len(self.feature_path) == 0:
-            self.feature_path = self.path_prefix + "_feature.txt"
-        self.interaction_path = interaction_path
-        if len(self.interaction_path) == 0:
-            self.interaction_path = self.path_prefix + "_interactions.txt"
-        self.model_path = model_path
-        if len(self.model_path) == 0:
-            self.model_path = self.path_prefix + "_model.xml"
-        self.cnf_path = cnf_path
-        self.parsed_features = {}
-        self.parsed_interactions = []
-        self.parsed_cnf = {'p_line': None, 'clauses': [], 'cnf_id_to_f_name': {}}
+    def __init__(self):
+        pass
+    
+    def parse_features(self, feature_path, xml_model_path=""):
+        ''' Parses only features from given feature_path. 
+            Can extend feature description with info stored in xml_model_path. '''
+        features = {
+            name: Feature(name, value)
+            for name, value in self._create_dict_from_txt(feature_path).items()
+        }
+        
+        # check to see if xml model exists and extend features if found
+        if len(xml_model_path) > 0 and os.path.isfile(xml_model_path):
+            self._parse_xml_model(features, xml_model_path)
+        
+        return features
 
+    def parse_interactions(self, interaction_path):
+        ''' parses only interactions from given interaction_path. '''
+        return [
+            FeatureInteraction(key.split('#'), value)
+            for key, value in self._create_dict_from_txt(interaction_path).items()
+        ]
+    
+    def parse_cnf(self, cnf_path, features):
+        ''' Parses constraints in cnf format from DIMACS file referenced by cnf_path.
+            features needed for name lookup and appending cnf_id to each feature. '''
+        # init constraint list
+        cnf = {'p_line': None, 'clauses': [], 'cnf_id_to_f_name': {}}
+
+        # check to see if cnf file exists and extend features if found
+        if len(cnf_path) > 0 and os.path.isfile(cnf_path):
+            cnf = self._parse_cnf(cnf_path, features)
+        
+        return cnf
+    
+    def extend_feature_values(self, features, feature_path):
+        ''' extends given feature dict by values read from file. '''
+        for name, value in self._create_dict_from_txt(feature_path).items():
+            if name in features:
+                features[name].add_value(value)
+                
+    ##################################################################
+    ######################## HELPER FUNCTIONS ########################
+    ##################################################################
+    
     def _create_dict_from_txt(self, path):
         """
         Creates a feature or interaction dict from the given txt file
@@ -56,34 +106,6 @@ class FeatureParser(object):
         pairs = [feature.split(":") for feature in features if feature is not ""]
         feature_dict = dict((k.strip(), float(v.strip())) for k, v in pairs)
         return feature_dict
-
-    def parse(self):
-        ''' extracts a list of Feature objects from given xml file. 
-            results will be returned as dictionary. 
-            Dictonary is also stored by class (see FeatureParser.parsed_features).'''
-        # compile list of Feature objects from txt
-        features = {
-            name: Feature(name, value)
-            for name, value in self._create_dict_from_txt(self.feature_path).items()
-        }
-
-        # compile list of FeatureInteractions from txt
-        interactions = [
-            FeatureInteraction(key.split('#'), value)
-            for key, value in self._create_dict_from_txt(self.interaction_path).items()
-        ]
-
-        # check to see if xml model exists and extend features if found
-        if os.path.isfile(self.model_path):
-            self._parse_xml_model(features, self.model_path)
-
-        # check to see if cnf file exists and extend features if found
-        if os.path.isfile(self.cnf_path):
-            self._parse_cnf(features, self.cnf_path)
-
-        self.parsed_interactions = interactions
-        self.parsed_features = features
-        return self.parsed_features, self.parsed_interactions, self.parsed_cnf
 
     def _parse_xml_model(self, features, f_name):
         ''' HELPER FUNCTION for parse.
@@ -121,15 +143,16 @@ class FeatureParser(object):
                 f = features[key]
                 f.exclude_features = [features[f_name] for f_name in feature_excludes[key]]
 
-    def _parse_cnf(self, features, f_name):
-        ''' HELPER function for parse.
+    def _parse_cnf(self, file_name, features):
+        ''' HELPER function for parse_cnf(...).
             Parses a DIMACS CNF file to extend features with cnf_id
             and returns the list of clauses extracted from file. '''
+        cnf = {'p_line': None, 'clauses': [], 'cnf_id_to_f_name': {}}
         # read in feature and interaction files
-        with open(f_name, "r") as file:
+        with open(file_name, "r") as file:
             # remove '$ ' symbols preceeding feature names
             lines = file.read().replace("$ ", " ").split("\n")
-        self.parsed_cnf['cnf_id_to_f_name'] = {}
+        cnf['cnf_id_to_f_name'] = {}
         clauses = []
         p_line = {'cnf': '', 'nbvar': 0, 'nbclauses': 0}
         current_clause = []
@@ -143,7 +166,7 @@ class FeatureParser(object):
                 if words[2] not in features:
                     continue
                 features[words[2]].cnf_id = int(words[1])
-                self.parsed_cnf['cnf_id_to_f_name'][int(words[1])] = words[2]
+                cnf['cnf_id_to_f_name'][int(words[1])] = words[2]
             elif words[0] == "p":
                 if len(words) != 4:
                     continue
@@ -162,8 +185,9 @@ class FeatureParser(object):
                         current_clause = []
                     else:
                         current_clause.append(var)
-        self.parsed_cnf['p_line'] = p_line
-        self.parsed_cnf['clauses'] = clauses
+        cnf['p_line'] = p_line
+        cnf['clauses'] = clauses
+        return cnf
 
     def _get_text(self, nodelist):
         ''' helper function to extract text data from xml tag. '''

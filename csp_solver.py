@@ -5,9 +5,8 @@ GLOBAL_INSTANCE = None
 
 
 class CSPSolver(object):
-
     pheromones = None
-    
+
     def __init__(self, constraints):
         self.constraints = constraints
         self.primitive_constraints = None
@@ -151,8 +150,8 @@ class CSPSolver(object):
         for space in self.feature_spaces:
             # ensures fair fixing, since most fixes will reset space after only a few elements
             space_copy = [cnf_id for cnf_id in space]
-            #random.shuffle(space_copy)
-            #print("Starting space", i, " (length:", len(space_copy), ")")
+            # random.shuffle(space_copy)
+            # print("Starting space", i, " (length:", len(space_copy), ")")
             if not self._correct_feature_values(space_copy, result, result_tested):
                 print("Failure: Contradicting cnf File")
                 return None
@@ -203,7 +202,8 @@ class CSPSolver(object):
             Takes into account primitive_constraints. '''
         i = current_i + 1
         while i < len(feature_ids) and (
-                feature_ids[i] in self.primitive_constraints or -1 * feature_ids[i] in self.primitive_constraints):
+                        feature_ids[i] in self.primitive_constraints or -1 * feature_ids[
+                    i] in self.primitive_constraints):
             i += 1
         # print("next", i)
         return i
@@ -213,11 +213,12 @@ class CSPSolver(object):
             Takes into account primitive_constraints. '''
         i = current_i - 1
         while i >= len(feature_ids) and (
-                feature_ids[i] in self.primitive_constraints or -1 * feature_ids[i] in self.primitive_constraints):
+                        feature_ids[i] in self.primitive_constraints or -1 * feature_ids[
+                    i] in self.primitive_constraints):
             i -= 1
         # print("prev", i)
         return i
-    
+
     def _correct_feature_values(self, features, result, result_tested):
         ''' Fixes set values for features in result identified by cnf_id's listed in features,
             so that they comply with all constraints set within feature domain.
@@ -226,8 +227,8 @@ class CSPSolver(object):
         prev_i = 0
         cleared_after = 100000000000000
         while i < len(features):
-            #print "(idx,cnf_id):" + str(i)+","+str(features[i])+ " cleared_after_idx:" + str(cleared_after)
-            
+            # print "(idx,cnf_id):" + str(i)+","+str(features[i])+ " cleared_after_idx:" + str(cleared_after)
+
             if i < 0:
                 return False
 
@@ -236,14 +237,14 @@ class CSPSolver(object):
             # solve using random value for untested features
             if result[cnf_id] == None:
                 v = random.randint(0, 1) > 0
-                
+
                 '''
                 # pick most constrained value if feature has constraints
                 if len(self.constraint_graph[cnf_id]) > 0:
                     c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
                     v = c.get_value(cnf_id)
                 '''
-                
+
                 # set picked value as tested for given feature
                 result_tested[cnf_id].append(v)
                 if not self._solve(cnf_id, result, v):
@@ -265,7 +266,7 @@ class CSPSolver(object):
                             prev_i = i
                             i = self._next_idx(features, i)
                             continue
-                    
+
                     v = not result_tested[cnf_id][0]
                     if not self._solve(cnf_id, result, v):
                         # if section hasn't been entirely cleared before
@@ -305,19 +306,19 @@ class CSPSolver(object):
                         cleared_after = i
                         # clear following values
                         self._clear_following_features(features, i, result, result_tested)
-                        
+
                         # set feature untested and test again
                         result[cnf_id] = None
                         result_tested[cnf_id] = []
                         v = random.randint(0, 1) > 0
-                        
+
                         '''
                         # pick most constrained value if feature has constraints
                         if len(self.constraint_graph[cnf_id]) > 0:
                             c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
                             v = c.get_value(cnf_id)
                         '''
-                        
+
                         # set picked value as tested for given feature
                         result_tested[cnf_id].append(v)
                         if not self._solve(cnf_id, result, v):
@@ -341,7 +342,7 @@ class CSPSolver(object):
         max_pheromones.sort()
         median = None
         if len(max_pheromones) > 1:
-            self.pheromones["median"] = max_pheromones[int(len(max_pheromones)/2)]
+            self.pheromones["median"] = max_pheromones[int(len(max_pheromones) / 2)]
         else:
             self.pheromones["median"] = 0.0
         self.pheromones["max"] = max(self.pheromones["values"].values())
@@ -350,16 +351,32 @@ class CSPSolver(object):
     def _calc_value_from_pheromones(self, cnf_id):
         ''' Helper function to derive initial feature value
             from pheromones. '''
-        #print(self.pheromones["rand_p"])
+        # print("RANDOM P", self.pheromones["rand_p"])
         if self.pheromones["max"] > 0.0:
             v = self.pheromones["values"][cnf_id]
-            if v/self.pheromones["max"] > random.uniform(0.0,1.0):
-                #print("v:"+str(v)+" max:"+str(self.pheromones["max"])+" cnf_id:"+str(cnf_id))
-                return True
+            if v / self.pheromones["max"] > random.uniform(0.0, 1.0):
+                # print("v:"+str(v)+" max:"+str(self.pheromones["max"])+" cnf_id:"+str(cnf_id))
+                # return True  # old good approach
+
+                # new approach: if best didn't change over the last generations
+                # add possibility to turn a good pheromone off
+                if random.uniform(0.0, 1.0) < self.pheromones["rand_p"]:
+                    # print("RANDOMLY TURN OFF GOOD")
+                    return False
+                else:
+                    return True
             else:
-                return False
-        v = random.randint(0,1) > 0
-        #print("return "+str(v))
+                # return False  # old good approach
+
+                # new approach: if best didn't change over the last generations
+                # add possibility to turn a good pheromone off
+                if random.uniform(0.0, 1.0) < self.pheromones["rand_p"]:
+                    # print("RANDOMLY TURN ON BAD")
+                    return True
+                else:
+                    return False
+        v = random.randint(0, 1) > 0
+        # print("return "+str(v))
         return v
         '''
         if self.pheromones["median"] > 0.0 and self.pheromones["rand_p"] < random.uniform(0,1):
@@ -371,12 +388,12 @@ class CSPSolver(object):
 
     def _solve_feature_values(self, features, result, result_tested):
         ''' Solves missing values for features in result identified by cnf_id's listed in features.
-            result_tested stores information about previously tested values of a feature. '''            
+            result_tested stores information about previously tested values of a feature. '''
         i = 0
         while i < len(features):
             if i < 0:
                 return False
-            
+
             cnf_id = features[i]
 
             # solve using random value for untested features
@@ -386,14 +403,14 @@ class CSPSolver(object):
 
                 if self.pheromones != None:
                     v = self._calc_value_from_pheromones(cnf_id)
-                
+
                 '''
                 # pick most constrained value if feature has constraints
                 if len(self.constraint_graph[cnf_id]) > 0:
                     c = self._pick_best_constraint(self.constraint_graph[cnf_id], result)
                     v = c.get_value(cnf_id)
                 '''
-                
+
                 # set picked value as tested for given feature
                 result_tested[cnf_id].append(v)
                 if not self._solve(cnf_id, result, v):
@@ -403,7 +420,7 @@ class CSPSolver(object):
                         i = self._step_back(features, i, result, result_tested)
                         continue
                 else:
-                    pass#print("SSOOOOOOLVED")
+                    pass  # print("SSOOOOOOLVED")
 
             # pick value from untested
             else:
@@ -454,13 +471,14 @@ class CSPSolver(object):
                 best_constraint = c
 
         if best_constraint != None:
+            """
+            print("Constraint " + str(best_constraint.id))
+            print(" > Clause " + str(best_constraint.clause))
+            print(" > Culled " + str(best_constraint.get_culled_clause(result)))
+            print(" > Picked Value for feature.id="+str(cnf_id)+" is "+str(v))
+            """
             return best_constraint
-            '''
-            print "Constraint " + str(best_constraint.id)
-            print " > Clause " + str(best_constraint.clause)
-            print " > Culled " + str(best_constraint.get_culled_clause(result))
-            print " > Picked Value for feature.id="+str(cnf_id)+" is "+str(v)
-            '''
+
         else:
             idx = random.randint(0, len(constraint_ids) - 1)
             c_id = constraint_ids[idx]
@@ -470,12 +488,12 @@ class CSPSolver(object):
         ''' Tests value for feature in result referenced by cnf_id. '''
         prev = result[cnf_id]
         result[cnf_id] = value
-        
+
         # TODO making constraints great again
         unsatisfied = []
         for c_id in self.constraint_graph[cnf_id]:
             if self.constraints['clauses'][c_id - 1].is_violated_by(result):
                 result[cnf_id] = prev
                 return False
-        
+
         return True

@@ -34,16 +34,15 @@ def generate_random(feature_dict={}, ensure_valid=True):
     return candidate
 
 
-def assess_fitness(candidate, interactions=None):
+def assess_fitness(candidate):
     features = candidate.get_features()
     feature_fitness = 0
-    for feature_id, value in features.items():
-        if value:
-            # feature = get_feature_by_id(feature_id)
-            feature_name = CandidateSolution.cnf["cnf_id_to_f_name"][feature_id]
-            feature = CandidateSolution.features[feature_name]
-            feature_fitness += feature.value
-
+    for feature_id, is_set in features.items():
+        if is_set:
+            feature = CandidateSolution.model.get_feature_by_id(feature_id)
+            feature_fitness += feature.get_value(0)
+    
+    interactions = CandidateSolution.model.get_interaction_set(0)
     interaction_fitness = 0
     if interactions != None:
         for i in interactions:
@@ -72,19 +71,13 @@ def arbitrary_crossover(p1, p2, ensure_valid=True):
             c2 = None
     return c1, c2
 
-
-def get_feature_by_id(id):
-    feature = next((f for key, f in CandidateSolution.features.items() if f.cnf_id == id), None)
-    return feature
-
 def get_feature_cost(id):
     if CandidateSolution.min_feature_value == None:
-        feature_values = [f.value for f in CandidateSolution.features.values()]
+        feature_values = CandidateSolution.model.get_all_feature_values(0)
         CandidateSolution.min_feature_value = min(feature_values)
         CandidateSolution.max_feature_value = max(feature_values)
-    feature_name = CandidateSolution.cnf["cnf_id_to_f_name"][id]
-    feature = CandidateSolution.features[feature_name]
-    v = get_feature_by_id(id).value
+    feature = CandidateSolution.model.get_feature_by_id(id)
+    v = feature.get_value(0)
     return map_to_range(v, CandidateSolution.min_feature_value, CandidateSolution.max_feature_value, 1, 100)
     
 def map_to_range(value=-0.3, old_min=-0.5, old_max=0.5, new_min=0, new_max=1):
@@ -97,9 +90,7 @@ class CandidateSolution:
     ''' Contains a configuration of features in a dict.
     Unset features have a None value for specific key. '''
 
-    features = None
-    interactions = None
-    cnf = None
+    model = None
     number_of_instances = 0
     max_feature_value = None
     min_feature_value = None
@@ -111,14 +102,14 @@ class CandidateSolution:
         self._features = features
         self._feature_list = [f for f in self._features.values() if f is not None]
         self._fitness = None
-        if CandidateSolution.interactions != None:
+        if CandidateSolution.model != None:
             self.calc_fitness()
 
     def get_id(self):
         return self._id
 
     def calc_fitness(self):
-        self._fitness = assess_fitness(self, CandidateSolution.interactions)
+        self._fitness = assess_fitness(self)
 
     def get_fitness(self):
         return self._fitness

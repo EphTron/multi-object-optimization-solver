@@ -10,90 +10,20 @@ import candidate_solution
 from candidate_solution import CandidateSolution
 import csp_solver
 from csp_solver import CSPSolver
+import json_helper
 
 import random
 import utility
 import copy
-import json
-import os
-import os.path
-import datetime
 
 # used for plotting
 import numpy
 import matplotlib.pyplot as plt
 
-FEATURE_PATH = ""
-INTERACTION_PATH = ""
-MODEL_PATH = ""
+FEATURE_PATHS = []
+INTERACTION_PATHS = []
+XML_MODEL_PATH = ""
 CNF_PATH = ""
-
-
-def write_json_to_file(json_dict, file_name):
-    ''' (over)writes contents of json_dict into file referenced by file_name. '''
-    with open(file_name, 'w') as file:
-        json.dump(json_dict, file, sort_keys=True, indent=4, separators=(',', ': '))
-        file.close()
-
-
-def extend_json_log(json_dict, file_name):
-    ''' appends contents of json_dict to logging structure 
-        in JSON file referenced by file_name. '''
-    time_stamp = str(datetime.datetime.now())
-    full_json = None
-    if not os.path.isfile(file_name) or os.stat(file_name).st_size == 0:
-        full_json = {time_stamp: json_dict}
-    else:
-        with open(file_name, 'r') as file:
-            full_json = json.load(file)
-            file.close()
-        full_json[time_stamp] = json_dict
-    if 'best' in json_dict:
-        if 'best' in full_json:
-            if json_dict['best']['fitness'] < full_json['best']['fitness']:
-                full_json['best'] = json_dict['best']
-                full_json['best']['time_stamp'] = time_stamp
-        else:
-            full_json['best'] = json_dict['best']
-            full_json['best']['time_stamp'] = time_stamp
-    write_json_to_file(full_json, file_name)
-
-
-def clear_json_log(file_name):
-    write_json_to_file({}, file_name)
-
-
-def brute_force(file_name, verbose):
-    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        file_name,
-        feature_path=FEATURE_PATH,
-        interaction_path=INTERACTION_PATH,
-        model_path=MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    if CandidateSolution.cnf != None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
-
-    best = None
-    max_count = 2 ** len(features) - 1
-    last_str = '{0:b}'.format(max_count)
-    c_feature_names = [f_name for f_name in features.keys()]
-    for i in range(0, max_count):
-        if verbose and i % 100 == 0:
-            print(i, " of ", max_count)
-        str = '{0:b}'.format(i)
-        while len(str) != len(last_str):
-            str = '0' + str
-        c_features = {f_name: None for f_name in features.keys()}
-        for digit in range(0, len(str)):
-            if str[digit] == '1':
-                c_features[c_feature_names[digit]] = features[c_feature_names[digit]]
-        c = CandidateSolution(c_features)
-        if c.is_valid() and (best is None or best.get_fitness() < c.get_fitness()):
-            best = c
-    return best
-
 
 def meets_all_constraints(feature_vector):
     if csp_solver.GLOBAL_INSTANCE != None:
@@ -135,19 +65,17 @@ def tweak_based_on_pheromones(candidate, ):
 
 
 def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best_size=1, verbose=False):
-    # init parser, features, interactions
-    CandidateSolution.features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        "obsolete",
-        feature_path=FEATURE_PATH,
-        interaction_path=INTERACTION_PATH,
-        model_path=MODEL_PATH,
+    CandidateSolution.model = feature_parser.parse(
+        feature_paths=FEATURE_PATHS,
+        interaction_paths=INTERACTION_PATHS,
+        xml_model_path=XML_MODEL_PATH,
         cnf_path=CNF_PATH,
         verbose=verbose
     )
-
-    if CandidateSolution.cnf is not None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
-
+    cnf = CandidateSolution.model.get_cnf()
+    if cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
+    
     # init list for best solutions
     best_solutions = []
 
@@ -155,8 +83,10 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
     adaptive_evapo_rate = 1
     evapo_rate = 0.3  # 0.1
     learn_rate = 0.5  # 0.5
+
     pheromones = {"values": {}, "rand_p": 0.0, "occu_counter": {}}
-    for idx, f in CandidateSolution.features.items():
+    features = CandidateSolution.model.get_features()
+    for idx, f in features.items():
         if f.cnf_id != None:
             pheromones["values"][f.cnf_id] = 1 / candidate_solution.get_feature_cost(f.cnf_id)
 
@@ -177,6 +107,7 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
 
     gen_counter = 0
     best_changed = 0
+    feature_count = len(features)
     while gen_counter < generations:
         # pheromones["rand_p"] = max(min(1 - (gen_counter / float(generations)), 0.8), 0.1)
         print("========== NEW GENERATION STARTED " + str(gen_counter) + str(" =========="))
@@ -244,8 +175,8 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
 
         # if best didnt change add chance to do random changes
         if best_changed > 0:
-            if pheromones["rand_p"] < (4 / len(CandidateSolution.features)):
-                pheromones["rand_p"] += 1 / len(CandidateSolution.features)
+            if pheromones["rand_p"] < (4 / feature_count):
+                pheromones["rand_p"] += 1 / feature_count
         else:
             pheromones["rand_p"] = 0
 
@@ -292,16 +223,16 @@ def simple_evolution_template(generations=1, pop_size=10, selection_size=5, best
 
 
 def test_csp_solver(file_name, verbose):
-    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        file_name,
-        feature_path=FEATURE_PATH,
-        interaction_path=INTERACTION_PATH,
-        model_path=MODEL_PATH,
+    CandidateSolution.model = feature_parser.parse(
+        feature_paths=FEATURE_PATHS,
+        interaction_paths=INTERACTION_PATHS,
+        xml_model_path=XML_MODEL_PATH,
         cnf_path=CNF_PATH,
         verbose=verbose
     )
-    if CandidateSolution.cnf != None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+    cnf = CandidateSolution.model.get_cnf()
+    if cnf != None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
 
     for i in range(0, 250):
         print("============== CANDIDATE " + str(i) + " =============")
@@ -316,21 +247,21 @@ def test_csp_solver(file_name, verbose):
 
 
 def test_fix_vector(file_name, verbose):
-    features, CandidateSolution.interactions, CandidateSolution.cnf = feature_parser.parse(
-        file_name,
-        feature_path=FEATURE_PATH,
-        interaction_path=INTERACTION_PATH,
-        model_path=MODEL_PATH,
+    CandidateSolution.model = feature_parser.parse(
+        feature_paths=FEATURE_PATHS,
+        interaction_paths=INTERACTION_PATHS,
+        xml_model_path=XML_MODEL_PATH,
         cnf_path=CNF_PATH,
         verbose=verbose
     )
-    if CandidateSolution.cnf != None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(CandidateSolution.cnf)
+    cnf = CandidateSolution.model.get_cnf()
+    if cnf is not None:
+        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
 
     for i in range(0, 250):
         print("============== CANDIDATE " + str(i) + " =============")
         vec = {
-            cnf_id: random.randint(0, 1) > 0 for cnf_id in CandidateSolution.cnf['cnf_id_to_f_name'].keys()
+            cnf_id: random.randint(0, 1) > 0 for cnf_id in cnf['cnf_id_to_f_name'].keys()
         }
         print(vec)
         vec = csp_solver.GLOBAL_INSTANCE.fix_feature_vector(vec)
@@ -345,30 +276,28 @@ def test_fix_vector(file_name, verbose):
 
 
 if __name__ == "__main__":
-    FEATURE_PATH = 'src/project_public_2/busybox-1.198.0_feature.txt'
-    INTERACTION_PATH = 'src/project_public_2/busybox-1.198.0_interactions.txt'
-    CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
-    # test_csp_solver('src/project_public_1/busybox', verbose=True)
-    # FEATURE_PATH = 'src/project_public_2/toybox_feature3.txt'
-    # INTERACTION_PATH = 'src/project_public_2/toybox_interactions3.txt'
-    # CNF_PATH = 'src/project_public_2/toybox.dimacs'
+
+    # busy box
+    # FEATURE_PATHS.append('src/project_public_2/busybox-1.198.0_feature.txt')
+    # INTERACTION_PATHS.append( 'src/project_public_2/busybox-1.198.0_interactions.txt')
+    # CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
+
+    # toy box
+    FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
+    FEATURE_PATHS.append('src/project_public_2/toybox_feature2.txt')
+    FEATURE_PATHS.append('src/project_public_2/toybox_feature3.txt')
+    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions1.txt')
+    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions2.txt')
+    INTERACTION_PATHS.append('src/project_public_2/toybox_interactions3.txt')
+    CNF_PATH = 'src/project_public_2/toybox.dimacs'
+
     result = simple_evolution_template(
         generations=30,
         pop_size=25,
         selection_size=5,
-        best_size=1
+        best_size=1,
+        verbose=False
     )
-    clear_json_log('src/project_public_2/toy_box_pheromones.json')
-    extend_json_log(result, 'src/project_public_2/toy_box_pheromones.json')
-
-    """
-    FEATURE_PATH = 'src/project_public_2/toybox_feature1.txt'
-    INTERACTION_PATH = 'src/project_public_2/toybox_interactions1.txt'
-    CNF_PATH = 'src/project_public_2/toybox.dimacs'
-    test_fix_vector('src/project_public_1/toybox', verbose=True)
     
-    FEATURE_PATH = 'src/project_public_2/busybox-1.198.0_feature.txt'
-    INTERACTION_PATH = 'src/project_public_2/busybox-1.198.0_interactions.txt'
-    CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
-    test_csp_solver('src/project_public_1/busybox', verbose=True)
-    """
+    json_helper.clear_json_log('src/project_public_2/toy_box_pheromones.json')
+    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_pheromones.json')

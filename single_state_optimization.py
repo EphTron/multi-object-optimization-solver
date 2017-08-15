@@ -205,8 +205,6 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
     # plot of our generation info
     plot_bar_chart_of_generation(generation_info)
 
-    print("See log file for feature vector")
-
     return evo_result
 
 
@@ -256,7 +254,7 @@ if __name__ == "__main__":
         FIGURE_NAME = "Objective " + str(i)
 
         # set file_name of output log
-        log_name = 'src/project_public_2/toy_box_single_log_' + str(i) + '.json'
+        log_name = 'src/project_public_2/toybox_single_log_' + str(i) + '.json'
 
         # clear previously logged content (if exists)
         json_helper.clear_json_log(log_name)

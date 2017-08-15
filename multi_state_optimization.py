@@ -18,8 +18,9 @@ import utility
 import copy
 
 # used for plotting
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import axes3d, Axes3D
 
 EPSILON  =  0.0000000001
 INFINITY = 9999999999
@@ -37,10 +38,12 @@ def meets_all_constraints(feature_vector):
 
 def sort_population_by_pareto_rank(pop):
     pop.sort(key=lambda x: x.pareto_rank)
-    
+
 def remove_same_by_fitness(candidates):
     ''' Returns list copied from candidates, where
-        duplicates (comparing by fitness sum) are removed. '''
+        duplicates (comparing by fitness sum) are removed.
+        remove_fitness_sums can alternatively contain
+        fitness_sum values to remove from candidates. '''
     b = list(set([c.get_fitness_sum() for c in candidates]))
     temp = []
     for fitness_value in b:
@@ -50,6 +53,24 @@ def remove_same_by_fitness(candidates):
                 temp.append(c)
                 break
     return temp
+
+def remove_intersecting(candidates, other_candidates):
+    ''' Returns list copied from candidates, where
+        intersecting (comparing by fitness sum) 
+        from other_candidates are removed. '''
+    b = list(set([c.get_fitness_sum() for c in other_candidates]))
+    temp = []
+    for c in candidates:
+        c_val = c.get_fitness_sum()
+        contained = False
+        for fitness_value in b:
+            if abs(c_val-fitness_value) < EPSILON:
+                contained = True
+                break
+        if not contained:
+            temp.append(c)
+    return temp
+    
 
 def calc_sparsity(candidates):
     ''' Calculates sparsity for all candidates. 
@@ -169,6 +190,11 @@ def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
     gen_counter = 0
     best_changed = 0
     feature_count = len(features)
+    generation_info = {
+        "previous_solutions":[],
+        "pareto_front":[],
+        "best_size":best_size
+    }
     while gen_counter < generations:
         print("========== NEW GENERATION STARTED " + str(gen_counter) + str(" =========="))
         fitness_sum = 0.0
@@ -252,6 +278,18 @@ def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
                   " sparsity:" + str(sol.sparsity))
         
         gen_counter += 1
+        
+        # store latest pareto front
+        if gen_counter == generations:
+            generation_info["pareto_front"] = [c for c in best_solutions if c.pareto_rank == 0]
+            # if small generation count is chosen for optimization
+            # algorithm might terminate before best_solution is 
+            # only filled by CandidateSolution with pareo_rank = 0
+            if len(generation_info["pareto_front"]) < len(best_solutions):
+                generation_info["previous_solutions"].extend([c for c in best_solutions if c.pareto_rank > 0])
+        # store best as previous solution
+        else:
+            generation_info["previous_solutions"].extend([c for c in best_solutions])
     
     result = {
         'best_solutions': [],
@@ -261,13 +299,58 @@ def pareto_burrito_acs(generations=50, pop_size=10, best_size=8, verbose=False):
     }
     
     phero_info = [(val, idx) for (idx, val) in pheromones["values"].items() if val > 0.3]
-    print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
+    #print("Pheromones", phero_info, "len", len(phero_info), "max", max([x[0] for x in phero_info]))
 
     for sol in best_solutions:
         result['best_solutions'].append(sol.as_dict())
-
+    
+    # process and plot collected generation info from optimization process
+    finalize_generation_info(generation_info)
+    plot_scatter3d_of_generations(generation_info)
+    
     return result
 
+def finalize_generation_info(generation_info):
+    ''' some maintanance steps to ensure generation info contains no doubles. '''
+    # make sure that previous solutions does not contain values from latest pareto front
+    generation_info["previous_solutions"] = remove_intersecting(
+        generation_info["previous_solutions"],
+        generation_info["pareto_front"]
+    )
+
+    # remove doubles added across generations
+    remove_same_by_fitness(generation_info["previous_solutions"])
+
+def plot_scatter3d_of_generations(generation_info):
+    ''' Draws a scatter plot of pareto front and all best solutions found in previous generations. '''
+    if CandidateSolution.model.get_num_objectives() != 3:
+        print("Failure: Can't produce 3d plot if objective count != 3")
+        return
+        
+    # create pareto front point set
+    pareto_points = np.array([c.get_fitness_values() for c in generation_info["pareto_front"]])
+    
+    # create previous points set
+    previous_points = np.array([c.get_fitness_values() for c in generation_info["previous_solutions"]])
+    
+    # setup figure
+    fig = plt.figure()
+    ax = Axes3D(fig)#fig.add_subplot(111, projection='3d')
+    pareto_scatter = ax.scatter(pareto_points[:,0],pareto_points[:,1],pareto_points[:,2],color='red')
+    prev_gen_scatter = ax.scatter(previous_points[:,0],previous_points[:,1],previous_points[:,2])
+    ax.set_xlabel("Objective 1 values")
+    ax.set_ylabel("Objective 2 values")
+    ax.set_zlabel("Objective 3 values")
+    ax.set_title("Pareto Front and best Candidates of previous Generations")
+    pareto_label = 'Pareto Front\n(if "Number of Candidates at rank 0" > '+str(generation_info["best_size"])+': shows '+str(generation_info["best_size"])+' elements maximizing sparsity)'
+    prev_gen_label = 'Best Candidates of previous Generations'
+    ax.legend((pareto_scatter, prev_gen_scatter), (pareto_label, prev_gen_label))
+    # invert axis because we optimize towards lowest values
+    # and pareto front should be outmost points
+    ax.invert_xaxis()
+    ax.invert_yaxis()
+    ax.invert_zaxis()
+        
 if __name__ == "__main__":
     # toy box
     FEATURE_PATHS.append('src/project_public_2/toybox_feature1.txt')
@@ -279,11 +362,17 @@ if __name__ == "__main__":
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
 
     result = pareto_burrito_acs(
-        generations=100,
+        generations=50,
         pop_size=10,
         best_size=8,
         verbose=False
     )
     
-    json_helper.clear_json_log('src/project_public_2/toy_box_multi_log.json')
-    json_helper.extend_json_log(result, 'src/project_public_2/toy_box_multi_log.json')
+    log_name = 'src/project_public_2/toybox_multi_log.json'
+    json_helper.clear_json_log(log_name)
+    json_helper.extend_json_log(result, log_name)
+    
+    print("******************************")
+    print("OPTIMIZATION DONE\n > output can be analyzed from JSON file.\n > file name:" + log_name)
+    
+    plt.show()

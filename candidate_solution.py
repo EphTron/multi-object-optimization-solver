@@ -41,7 +41,7 @@ def assess_fitness(candidate, objective_idx):
         if is_set:
             feature = CandidateSolution.model.get_feature_by_id(feature_id)
             feature_fitness += feature.get_value(objective_idx)
-    
+
     interactions = CandidateSolution.model.get_interaction_set(objective_idx)
     interaction_fitness = 0
     if interactions != None:
@@ -50,7 +50,7 @@ def assess_fitness(candidate, objective_idx):
 
     # print("Calculated feature fitness" , feature_fitness)
 
-    return feature_fitness + interaction_fitness # TODO comment back in
+    return feature_fitness + interaction_fitness  # TODO comment back in
 
 
 def arbitrary_crossover(p1, p2, ensure_valid=True):
@@ -71,8 +71,9 @@ def arbitrary_crossover(p1, p2, ensure_valid=True):
             c2 = None
     return c1, c2
 
+
 def get_feature_cost(id, objective_id=0):
-    #if CandidateSolution.min_feature_value == None:
+    # if CandidateSolution.min_feature_value == None:
     # TODO: list
     feature_values = CandidateSolution.model.get_all_feature_values(objective_id)
     CandidateSolution.min_feature_value = min(feature_values)
@@ -81,11 +82,13 @@ def get_feature_cost(id, objective_id=0):
     v = feature.get_value(objective_id)
     return map_to_range(v, CandidateSolution.min_feature_value, CandidateSolution.max_feature_value, 1, 100)
 
+
 def map_to_range(value=-0.3, old_min=-0.5, old_max=0.5, new_min=0, new_max=1):
     old_range = (old_max - old_min)
     new_range = (new_max - new_min)
     new_value = (((value - old_min) * new_range) / old_range) + new_min
     return new_value
+
 
 class CandidateSolution:
     ''' Contains a configuration of features in a dict.
@@ -127,7 +130,7 @@ class CandidateSolution:
         ''' Returns a list of all objective fitness values
             for this candidate. '''
         return [v for v in self._fitness_values]
-    
+
     def get_fitness_sum(self):
         return sum(self.get_fitness_values())
 
@@ -168,7 +171,7 @@ class CandidateSolution:
         for i in range(0, len(self._fitness_values)):
             this_val = self._fitness_values[i]
             other_val = other._fitness_values[i]
-            if abs(this_val-other_val) < epsilon:
+            if abs(this_val - other_val) < epsilon:
                 continue
             elif this_val > other_val:
                 return False
@@ -177,15 +180,15 @@ class CandidateSolution:
         if all_equal:
             return False
         return True
-    
+
     def as_dict(self):
         ''' format all class attributes into a dict.
             Used for generating JSON output. '''
         return {
-            'id':self._id,
-            'fitness_values':self.get_fitness_values(),
+            'id': self._id,
+            'fitness_values': self.get_fitness_values(),
             'features': {
-                CandidateSolution.model.get_feature_name(id): val 
+                CandidateSolution.model.get_feature_name(id): val
                 for id, val in self.get_features().items()
             }
         }

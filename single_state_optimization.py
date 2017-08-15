@@ -197,7 +197,7 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
         'generations': generations
     }
     phero_info = [(val, idx) for (idx, val) in pheromones["values"].items() if val > 0.3]
-    
+
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         evo_result['best_solutions'].append(sol.as_dict())
@@ -226,7 +226,7 @@ def plot_bar_chart_of_generation(generation_info):
 
     # add some text for labels, title and axes ticks
     ax.set_ylabel("Fitness")
-    ax.set_title("Fitness Overview for "+FIGURE_NAME)
+    ax.set_title("Fitness Overview for " + FIGURE_NAME)
     ax.set_xticks(ind + width / 2)
     ax.set_xticklabels(tuple([i for i, x in enumerate(generation_info)]))
 
@@ -240,27 +240,27 @@ if __name__ == "__main__":
     # FEATURE_PATHS = ['src/project_public_2/busybox-1.198.0_feature.txt']
     # INTERACTION_PATHS = ['src/project_public_2/busybox-1.198.0_interactions.txt']
     # CNF_PATH = 'src/project_public_2/busybox-1.18.0.dimacs'
-    
-    ## toy box
+
+    # toy box
     # set path to load DIMACS cnf formatted constraint from
     CNF_PATH = 'src/project_public_2/toybox.dimacs'
-    for i in range(1,4):
+    for i in range(1, 4):
         # reset number of generated candidate solutions
         # so that assigned id's are meaningful within objective optimization
         CandidateSolution.number_of_instances = 0
-        
+
         # set path to load features values and interactions from
         # and set title of plot for this objective
-        FEATURE_PATHS = ['src/project_public_2/toybox_feature'+str(i)+'.txt']
-        INTERACTION_PATHS = ['src/project_public_2/toybox_interactions'+str(i)+'.txt']
-        FIGURE_NAME = "Objective "+str(i)
-        
+        FEATURE_PATHS = ['src/project_public_2/toybox_feature' + str(i) + '.txt']
+        INTERACTION_PATHS = ['src/project_public_2/toybox_interactions' + str(i) + '.txt']
+        FIGURE_NAME = "Objective " + str(i)
+
         # set file_name of output log
-        log_name = 'src/project_public_2/toy_box_single_log_'+str(i)+'.json'
-        
+        log_name = 'src/project_public_2/toy_box_single_log_' + str(i) + '.json'
+
         # clear previously logged content (if exists)
         json_helper.clear_json_log(log_name)
-        
+
         # perform single state optimization
         result = adaptive_ant_mixican(
             generations=100,
@@ -268,11 +268,11 @@ if __name__ == "__main__":
             best_size=1,
             verbose=False
         )
-        
+
         # log results
         json_helper.extend_json_log(result, log_name)
-        
+
         print("******************************")
-        print("OPTIMIZATION "+str(i)+" DONE\n > output can be analyzed from JSON file.\n > file name:"+log_name)
-    
+        print("OPTIMIZATION " + str(i) + " DONE\n > output can be analyzed from JSON file.\n > file name:" + log_name)
+
     plt.show()

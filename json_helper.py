@@ -3,11 +3,13 @@ import os
 import os.path
 import datetime
 
+
 def write_json_to_file(json_dict, file_name):
     ''' (over)writes contents of json_dict into file referenced by file_name. '''
     with open(file_name, 'w') as file:
         json.dump(json_dict, file, sort_keys=True, indent=4, separators=(',', ': '))
         file.close()
+
 
 def extend_json_log(json_dict, file_name):
     ''' appends contents of json_dict to logging structure 
@@ -30,6 +32,7 @@ def extend_json_log(json_dict, file_name):
             full_json['best'] = json_dict['best']
             full_json['best']['time_stamp'] = time_stamp
     write_json_to_file(full_json, file_name)
+
 
 def clear_json_log(file_name):
     write_json_to_file({}, file_name)

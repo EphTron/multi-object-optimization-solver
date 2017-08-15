@@ -9,7 +9,7 @@
         self.optional = optional
         self.exclude_features = exclude_features
         self._values = [value]
-    
+
     def get_value(self, i):
         ''' Returns the ith value of this feature. Number of values 
             depends on values added to the feature. '''
@@ -20,15 +20,15 @@
             msg += "\n > expected: i < " + str(len(self._values))
             msg += "\n > received: " + str(i)
             raise ValueError("Failure: Feature.get_value(i): i not within range")
-    
+
     def add_value(self, v):
         ''' appends a value to this feature. '''
         self._values.append(v)
-    
+
     def get_value_count(self):
         ''' Returns the number of available values for this feature. '''
         return len(self._values)
-    
+
     def remove_value(self, i):
         ''' Removes the ith value of this feature. Number of values 
             depends on values added to the feature. '''

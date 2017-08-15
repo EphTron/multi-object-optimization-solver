@@ -3,8 +3,8 @@ import csp_solver
 
 
 def generate_random(feature_dict={}, ensure_valid=True):
-    ''' Brute force generation of valid candidate solution.
-    feature_dict contains ALL possible features. '''
+    """ Brute force generation of valid candidate solution.
+    feature_dict contains ALL possible features. """
     candidate = None
     while candidate == None:
         f_dict = {}
@@ -91,8 +91,8 @@ def map_to_range(value=-0.3, old_min=-0.5, old_max=0.5, new_min=0, new_max=1):
 
 
 class CandidateSolution:
-    ''' Contains a configuration of features in a dict.
-    Unset features have a None value for specific key. '''
+    """ Contains a configuration of features in a dict.
+    Unset features have a None value for specific key. """
 
     model = None
     number_of_instances = 0
@@ -120,23 +120,23 @@ class CandidateSolution:
             self._fitness_values.append(assess_fitness(self, i))
 
     def get_fitness(self, objective_idx):
-        ''' Returns the candidate solutions fitness 
-            for objective referenced by objective_idx. '''
+        """ Returns the candidate solutions fitness 
+            for objective referenced by objective_idx. """
         if objective_idx >= len(self._fitness_values):
             raise ValueError("Failure: Exceedes value range for objectives.")
         return self._fitness_values[objective_idx]
 
     def get_fitness_values(self):
-        ''' Returns a list of all objective fitness values
-            for this candidate. '''
+        """ Returns a list of all objective fitness values
+            for this candidate. """
         return [v for v in self._fitness_values]
 
     def get_fitness_sum(self):
         return sum(self.get_fitness_values())
 
     def is_valid(self):
-        ''' checks constraints in feature list.
-        Returns True if all constraints met. '''
+        """ checks constraints in feature list.
+        Returns True if all constraints met. """
         cnf_ids = []
         for feature in self._features.values():
             if feature == None:
@@ -159,13 +159,13 @@ class CandidateSolution:
         return self._features
 
     def copy_from(self, c):
-        ''' deep copy of candidate_solution data. '''
+        """ deep copy of candidate_solution data. """
         self._features = {f_name: c._features[f_name] for f_name in c._features}
         self._feature_list = [f for f in self._features.values() if f is not None]
 
     def dominates(self, other):
-        ''' returns true if this candidate dominates other candidate. 
-            (implements PARETO dominance). '''
+        """ returns true if this candidate dominates other candidate. 
+            (implements PARETO dominance). """
         epsilon = 0.0000000001
         all_equal = True
         for i in range(0, len(self._fitness_values)):
@@ -182,8 +182,8 @@ class CandidateSolution:
         return True
 
     def as_dict(self):
-        ''' format all class attributes into a dict.
-            Used for generating JSON output. '''
+        """ format all class attributes into a dict.
+            Used for generating JSON output. """
         return {
             'id': self._id,
             'fitness_values': self.get_fitness_values(),

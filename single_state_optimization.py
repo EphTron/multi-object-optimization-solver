@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Machine Learning Optimization Project
 Created on Jun 21.06.17 14:30
-@author: ephtron
+@author: Ephraim Schott & Sebastian Stickert
+Matrikelnummern: 110960 & 110882
 """
-import time
 
 import feature_parser
 import candidate_solution
@@ -15,8 +16,6 @@ import json_helper
 
 import numpy as np
 import matplotlib.pyplot as plt
-
-import random
 
 FIGURE_NAME = "Title"
 FEATURE_PATHS = []

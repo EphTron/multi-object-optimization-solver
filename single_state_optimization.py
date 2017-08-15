@@ -4,6 +4,7 @@
 Created on Jun 21.06.17 14:30
 @author: ephtron
 """
+import time
 
 import feature_parser
 import candidate_solution
@@ -12,8 +13,12 @@ import csp_solver
 from csp_solver import CSPSolver
 import json_helper
 
+import numpy as np
+import matplotlib.pyplot as plt
+
 import random
 
+FIGURE_NAME = "Title"
 FEATURE_PATHS = []
 INTERACTION_PATHS = []
 XML_MODEL_PATH = ""
@@ -100,7 +105,7 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
 
     gen_counter = 0
     best_changed = 0
-
+    generation_info = []
     while gen_counter < generations:
         print("========== NEW GENERATION STARTED " + str(gen_counter) + str(" =========="))
 
@@ -163,9 +168,6 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
             # increase chance to ignore pheromones
             if pheromones["rand_p"] < (6 / float(feature_count)):
                 pheromones["rand_p"] += 1 / float(feature_count)
-            elif best_changed > 10:
-                if pheromones["rand_p"] < 0.1:
-                    pheromones["rand_p"] += 3 / float(feature_count)
         else:
             pheromones["rand_p"] = 0
 
@@ -173,6 +175,11 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
         print("ADAPTION RATE: ", adaptive_evapo_rate)
         print("BEST DIDN'T CHANGE SINCE: ", best_changed)
         print("BREAK OUT PROBABILITY", pheromones["rand_p"])
+
+        # save info of generation for plotting
+        generation_info.append({"best_fitness": best_solutions[0].get_fitness(0),
+                                "fitness_average": fitness_sum / pop_size,
+                                "adaption_rate": adaptive_evapo_rate})
 
         # sort by best
         sort_population_by_fitness(population)
@@ -194,62 +201,36 @@ def adaptive_ant_mixican(generations=1, pop_size=10, best_size=1, verbose=False)
     for sol in best_solutions:
         print("id:" + str(sol.get_id()) + " fitness_values:" + str(sol.get_fitness_values()))
         evo_result['best_solutions'].append(sol.as_dict())
-    print("See log file for ")
+
+    # plot of our generation info
+    plot_bar_chart_of_generation(generation_info)
+
+    print("See log file for feature vector")
 
     return evo_result
 
 
-def test_csp_solver(verbose):
-    CandidateSolution.model = feature_parser.parse(
-        feature_paths=FEATURE_PATHS,
-        interaction_paths=INTERACTION_PATHS,
-        xml_model_path=XML_MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    cnf = CandidateSolution.model.get_cnf()
-    if cnf is not None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
+def plot_bar_chart_of_generation(generation_info):
+    y = [gen["fitness_average"] for gen in generation_info]
+    N = len(y)
+    ind = np.arange(N)  # the x locations for the groups
+    width = 0.15  # the width of the bars
 
-    for i in range(0, 250):
-        print("============== CANDIDATE " + str(i) + " =============")
+    fig, ax = plt.subplots()
 
-        vec = csp_solver.GLOBAL_INSTANCE.generate_feature_vector()
-        print(vec)
-        if meets_all_constraints(vec):
-            print(" > Meets all constraints")
-        else:
-            print(" > Does not meet all constraints")
-    return
+    best_fitness = [gen["best_fitness"] for gen in generation_info]
+    rects1 = ax.bar(ind, best_fitness, width, color='r')
 
+    fitness_average = [gen["fitness_average"] for gen in generation_info]
+    rects2 = ax.bar(ind + width, fitness_average, width, color='y')
 
-def test_fix_vector(verbose):
-    CandidateSolution.model = feature_parser.parse(
-        feature_paths=FEATURE_PATHS,
-        interaction_paths=INTERACTION_PATHS,
-        xml_model_path=XML_MODEL_PATH,
-        cnf_path=CNF_PATH,
-        verbose=verbose
-    )
-    cnf = CandidateSolution.model.get_cnf()
-    if cnf is not None:
-        csp_solver.GLOBAL_INSTANCE = CSPSolver(cnf)
+    # add some text for labels, title and axes ticks
+    ax.set_ylabel("Fitness")
+    ax.set_title("Fitness Overview for "+FIGURE_NAME)
+    ax.set_xticks(ind + width / 2)
+    ax.set_xticklabels(tuple([i for i, x in enumerate(generation_info)]))
 
-    for i in range(0, 250):
-        print("============== CANDIDATE " + str(i) + " =============")
-        vec = {
-            cnf_id: random.randint(0, 1) > 0 for cnf_id in cnf['cnf_id_to_f_name'].keys()
-        }
-        print(vec)
-        vec = csp_solver.GLOBAL_INSTANCE.fix_feature_vector(vec)
-        print(vec)
-        if vec is not None and meets_all_constraints(vec):
-            print(" > Meets all constraints")
-        elif vec is None:
-            print(" > Candidate is None.")
-        else:
-            print(" > Does not meet all constraints")
-    return
+    ax.legend((rects1[0], rects2[0]), ('Best Fitness', 'Fitness Average'))
 
 
 if __name__ == "__main__":
@@ -269,8 +250,10 @@ if __name__ == "__main__":
         CandidateSolution.number_of_instances = 0
         
         # set path to load features values and interactions from
+        # and set title of plot for this objective
         FEATURE_PATHS = ['src/project_public_2/toybox_feature'+str(i)+'.txt']
         INTERACTION_PATHS = ['src/project_public_2/toybox_interactions'+str(i)+'.txt']
+        FIGURE_NAME = "Objective "+str(i)
         
         # set file_name of output log
         log_name = 'src/project_public_2/toy_box_single_log_'+str(i)+'.json'
@@ -291,3 +274,5 @@ if __name__ == "__main__":
         
         print("******************************")
         print("OPTIMIZATION "+str(i)+" DONE\n > output can be analyzed from JSON file.\n > file name:"+log_name)
+    
+    plt.show()
